@@ -108,11 +108,14 @@ export default function ShapeForestChallenge() {
           <Shape shape={problem.targetShape} color="hsl(var(--foreground) / 0.2)" />
         </div>
         
-        <div className="flex justify-center items-end gap-4">
+        <div className="flex justify-around items-end gap-4">
           {problem.options.map((option, index) => (
-             <button key={index} onClick={() => handleSelectAnswer(option)} disabled={!!feedback}>
-                <Shape shape={option.shape} color={option.color} className="transition-transform hover:scale-110"/>
-             </button>
+             <div key={index} className="flex flex-col items-center gap-2">
+                <Shape shape={option.shape} color={option.color}/>
+                <Button onClick={() => handleSelectAnswer(option)} disabled={!!feedback} variant="outline" className="w-full">
+                    Select
+                </Button>
+             </div>
           ))}
         </div>
 
