@@ -11,13 +11,14 @@ import { cn } from '@/lib/utils';
 type ShapeType = 'circle' | 'square' | 'triangle';
 
 const Shape = ({ shape, color, ...props }: {shape: ShapeType, color: string, [key: string]: any}) => {
+    const style = { backgroundColor: shape !== 'triangle' ? color : undefined, borderBottomColor: shape === 'triangle' ? color : undefined };
     switch (shape) {
         case 'circle':
-            return <div className={cn("h-24 w-24 rounded-full", color)} {...props}></div>;
+            return <div className="h-24 w-24 rounded-full" style={style} {...props}></div>;
         case 'square':
-            return <div className={cn("h-24 w-24 rounded-lg", color)} {...props}></div>;
+            return <div className="h-24 w-24 rounded-lg" style={style} {...props}></div>;
         case 'triangle':
-            return <div className="w-0 h-0 border-l-[60px] border-l-transparent border-b-[100px] border-r-[60px] border-r-transparent" style={{borderBottomColor: color}} {...props}></div>;
+            return <div className="w-0 h-0 border-l-[60px] border-l-transparent border-b-[100px] border-r-[60px] border-r-transparent" style={style} {...props}></div>;
     }
 };
 
