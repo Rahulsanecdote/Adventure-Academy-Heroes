@@ -52,7 +52,7 @@ export default function StoryWeaver({ heroName, level }: StoryWeaverProps) {
       toast({
         variant: "destructive",
         title: "Oh no! Something went wrong.",
-        description: state.message || (state.errors as any)?.heroName || (state.errors as any)?.level,
+        description: state.message || (state.errors as any)?.heroName?.[0] || (state.errors as any)?.level?.[0] || "An unknown error occurred.",
       });
     }
   }, [state, toast]);
@@ -77,6 +77,7 @@ export default function StoryWeaver({ heroName, level }: StoryWeaverProps) {
               required
               className="bg-background"
             />
+             {state.errors?.heroName && <p className="text-sm font-medium text-destructive">{state.errors.heroName[0]}</p>}
           </div>
           <input type="hidden" name="level" value={level} />
           <SubmitButton />
