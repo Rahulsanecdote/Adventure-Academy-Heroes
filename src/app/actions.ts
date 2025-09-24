@@ -1,3 +1,4 @@
+
 "use server";
 
 import {
@@ -8,10 +9,7 @@ import {
   voicePronunciationPractice,
   VoicePronunciationPracticeInput,
 } from "@/ai/flows/voice-pronunciation-practice";
-import { 
-  storyWeaver, 
-  StoryWeaverInput 
-} from "@/ai/flows/story-weaver";
+import { storyWeaver, StoryWeaverInput } from "@/ai/flows/story-weaver";
 import { z } from "zod";
 import { difficultyLevels } from "@/lib/types";
 
@@ -31,7 +29,9 @@ export async function getPronunciation(prevState: any, formData: FormData) {
   }
 
   try {
-    const result = await voicePronunciationPractice({ command: validatedFields.data.command });
+    const result = await voicePronunciationPractice({
+      command: validatedFields.data.command,
+    });
     return {
       message: "Success",
       audio: result.audio,

@@ -16,6 +16,7 @@ const initialState = {
   message: "",
   story: null,
   image: null,
+  errors: null,
 };
 
 function SubmitButton() {
@@ -51,7 +52,7 @@ export default function StoryWeaver({ heroName, level }: StoryWeaverProps) {
       toast({
         variant: "destructive",
         title: "Oh no! Something went wrong.",
-        description: state.message,
+        description: state.message || (state.errors as any)?.heroName || (state.errors as any)?.level,
       });
     }
   }, [state, toast]);
