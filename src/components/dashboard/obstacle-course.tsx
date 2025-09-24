@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import MathGatesChallenge from "@/components/challenges/math-gates";
+import LetterRiverChallenge from "@/components/challenges/letter-river";
+import ShapeForestChallenge from "@/components/challenges/shape-forest";
+import ColorCanyonChallenge from "@/components/challenges/color-canyon";
 
 const challenges = [
   {
@@ -28,7 +31,7 @@ const challenges = [
     badge: "Recommended",
     color: "bg-green-100 dark:bg-green-900/30",
     badgeColor: "bg-green-500",
-    component: <p>Letter Recognition River coming soon!</p>,
+    component: <LetterRiverChallenge />,
   },
   {
     id: "shape-forest",
@@ -38,7 +41,7 @@ const challenges = [
     badge: "Popular",
     color: "bg-yellow-100 dark:bg-yellow-900/30",
     badgeColor: "bg-yellow-500",
-    component: <p>Shape Sorting Forest coming soon!</p>,
+    component: <ShapeForestChallenge />,
   },
   {
     id: "color-canyon",
@@ -48,7 +51,7 @@ const challenges = [
     badge: "Advanced",
     color: "bg-purple-100 dark:bg-purple-900/30",
     badgeColor: "bg-purple-500",
-    component: <p>Color Clearing Canyon coming soon!</p>,
+    component: <ColorCanyonChallenge />,
   },
   {
     id: "logic-leap",
@@ -84,7 +87,7 @@ export default function ObstacleCourse() {
                 <Badge variant="secondary" className={`whitespace-nowrap ${challenge.badgeColor} text-white`}>{challenge.badge}</Badge>
             </CardHeader>
             <CardFooter className="mt-auto">
-              <Button 
+              <Button
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
                 onClick={() => setActiveChallenge(challenge.id)}
               >
