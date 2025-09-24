@@ -96,7 +96,10 @@ export default function ObstacleCourse() {
       </div>
       <Dialog open={!!activeChallenge} onOpenChange={(isOpen) => !isOpen && setActiveChallenge(null)}>
         <DialogContent className="sm:max-w-md">
-            {currentChallenge?.component}
+          <DialogHeader>
+            <DialogTitle>{currentChallenge?.title}</DialogTitle>
+          </DialogHeader>
+          {currentChallenge?.component}
         </DialogContent>
       </Dialog>
     </div>
