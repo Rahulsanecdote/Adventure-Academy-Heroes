@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A story weaving AI agent that creates personalized adventure stories.
+ * @fileOverview A story weaving AI agent that creates personalized adventure stories with images.
  *
  * - storyWeaver - A function that handles the story generation process.
  * - StoryWeaverInput - The input type for the storyWeaver function.
@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 const StoryWeaverInputSchema = z.object({
@@ -23,6 +24,9 @@ const StoryWeaverOutputSchema = z.object({
   story: z
     .string()
     .describe('A short, engaging adventure story for a child.'),
+  image: z
+    .string()
+    .describe('A data URI of a generated image that illustrates the story.'),
 });
 export type StoryWeaverOutput = z.infer<typeof StoryWeaverOutputSchema>;
 
@@ -32,28 +36,36 @@ export async function storyWeaver(
   return storyWeaverFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'storyWeaverPrompt',
+const storyPrompt = ai.definePrompt({
+  name: 'storyWeaverStoryPrompt',
   input: {schema: StoryWeaverInputSchema},
-  output: {schema: StoryWeaverOutputSchema},
+  output: {schema: z.object({
+    story: z
+      .string()
+      .describe('A short, engaging adventure story for a child (3-4 paragraphs).'),
+    imagePrompt: z
+      .string()
+      .describe('A detailed prompt for an image generation model to illustrate the story. The style should be a vibrant and whimsical children\'s book illustration.'),
+  })},
   prompt: `You are a master storyteller for children, known as the Story Weaver.
 Create a short (3-4 paragraphs), exciting, and age-appropriate adventure story.
+Also, create a detailed prompt for an image generation model to create an illustration for the story.
 
 The hero of the story is named {{{heroName}}}.
 The hero is at level {{{level}}}, which should influence the challenge and complexity of the story. A higher level means a greater challenge.
 
 The story should have a clear beginning, a challenge to overcome, and a satisfying resolution where the hero uses their wits or skills.
+The image prompt should describe the key scene of the story in a style that is vibrant, whimsical, and looks like a children's book illustration.
 Keep the tone encouraging, positive, and full of wonder.
 
 Example for a low-level hero:
 Hero Name: Lily
 Level: 2
-Story: Lily, a brave Level 2 adventurer, found a map showing a secret garden behind the Whispering Waterfall. To get there, she had to solve a riddle from a friendly gnome. "I have keys, but open no locks. I have a space, but no room. You can enter, but can't go outside. What am I?" Lily thought hard and realized the answer was a keyboard! The gnome cheered and showed her the way to a beautiful garden filled with glowing flowers.
-
-Example for a higher-level hero:
-Hero Name: Sam
-Level: 10
-Story: Sam, a legendary Level 10 hero, heard whispers of a grumpy dragon in the Crystal Mountains who was hoarding all the sparkling river stones. Sam journeyed to the dragon's lair, not with a sword, but with a clever plan. The dragon was not evil, just lonely. Sam challenged the dragon to a game of wits, telling jokes and riddles. The dragon laughed so hard that sparkling tears rolled down its face, which turned into new river stones. They became friends, and the dragon promised to share the stones, ensuring the river flowed with sparkles once more.
+Output:
+{
+  "story": "Lily, a brave Level 2 adventurer, found a map showing a secret garden behind the Whispering Waterfall. To get there, she had to solve a riddle from a friendly gnome. \"I have keys, but open no locks. I have a space, but no room. You can enter, but can't go outside. What am I?\" Lily thought hard and realized the answer was a keyboard! The gnome cheered and showed her the way to a beautiful garden filled with glowing flowers.",
+  "imagePrompt": "A vibrant and whimsical children's book illustration of a young girl named Lily with a friendly gnome in a magical garden. The garden is filled with oversized, glowing flowers of various colors. A waterfall can be seen in the background. The style is soft and dreamlike."
+}
 `,
 });
 
@@ -64,7 +76,24 @@ const storyWeaverFlow = ai.defineFlow(
     outputSchema: StoryWeaverOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const { output: storyOutput } = await storyPrompt(input);
+    if (!storyOutput) {
+      throw new Error('Failed to generate story.');
+    }
+
+    const { media } = await ai.generate({
+      model: googleAI.model('imagen-4.0-fast-generate-001'),
+      prompt: storyOutput.imagePrompt,
+    });
+    
+    const imageUrl = media.url;
+    if (!imageUrl) {
+        throw new Error('Failed to generate image.');
+    }
+
+    return {
+      story: storyOutput.story,
+      image: imageUrl,
+    };
   }
 );
