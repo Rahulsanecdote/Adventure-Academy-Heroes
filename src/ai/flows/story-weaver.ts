@@ -9,7 +9,6 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 const StoryWeaverInputSchema = z.object({
@@ -82,7 +81,7 @@ const storyWeaverFlow = ai.defineFlow(
     }
 
     const { media } = await ai.generate({
-      model: googleAI.model('imagen-4.0-fast-generate-001'),
+      model: 'googleai/imagen-4.0-fast-generate-001',
       prompt: storyOutput.imagePrompt,
     });
     
