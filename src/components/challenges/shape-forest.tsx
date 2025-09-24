@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, XCircle, Shapes, RotateCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { type Difficulty } from '@/lib/types';
 
 type ShapeType = 'circle' | 'square' | 'triangle';
 
@@ -23,7 +23,7 @@ const Shape = ({ shape, color, ...props }: {shape: ShapeType, color: string, [ke
 };
 
 
-const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
+const generateProblem = (difficulty: Difficulty) => {
   const shapes: ShapeType[] = ['circle', 'square', 'triangle'];
   const colors = ['#3b82f6', '#22c55e', '#f97316', '#8b5cf6'];
 
@@ -32,7 +32,20 @@ const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
   
   let options: {shape: ShapeType; color: string}[] = [{shape: targetShape, color: targetColor}];
   
-  const numOptions = difficulty === 'Easy' ? 2 : difficulty === 'Medium' ? 3 : 4;
+  let numOptions = 2;
+  switch (difficulty) {
+    case 'Very Easy':
+    case 'Easy':
+      numOptions = 2;
+      break;
+    case 'Medium':
+      numOptions = 3;
+      break;
+    case 'Hard':
+    case 'Very Hard':
+      numOptions = 4;
+      break;
+  }
 
   while (options.length < numOptions) {
     const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
@@ -49,15 +62,14 @@ const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
   };
 };
 
-export default function ShapeForestChallenge() {
+type ChallengeProps = {
+  difficulty: Difficulty;
+  onPerformanceUpdate: (correct: boolean) => void;
+};
+
+export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
-
-  const difficulty = useMemo(() => {
-    if (streak >= 6) return 'Hard';
-    if (streak >= 3) return 'Medium';
-    return 'Easy';
-  }, [streak]);
 
   const [problem, setProblem] = useState(generateProblem(difficulty));
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
@@ -74,7 +86,10 @@ export default function ShapeForestChallenge() {
   const handleSelectAnswer = (selected: {shape: ShapeType; color: string}) => {
     if (feedback) return;
 
-    if (selected.shape === problem.targetShape) {
+    const isCorrect = selected.shape === problem.targetShape;
+    onPerformanceUpdate(isCorrect);
+
+    if (isCorrect) {
       setFeedback('correct');
       setStreak(s => s + 1);
       toast({

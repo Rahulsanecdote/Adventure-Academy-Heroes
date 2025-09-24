@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState, useActionState } from "react";
+import { useEffect, useState, useActionState, Dispatch, SetStateAction } from "react";
 import { useFormStatus } from "react-dom";
 import { BrainCircuit, Loader, Wand2, ArrowDown, ArrowUp, Equal } from "lucide-react";
 import { getNewDifficulty } from "@/app/actions";
@@ -37,12 +38,17 @@ function SubmitButton() {
   );
 }
 
-export default function AdaptiveDifficultyAdjuster() {
+type AdaptiveDifficultyAdjusterProps = {
+  difficulty: Difficulty;
+  setDifficulty: Dispatch<SetStateAction<Difficulty>>;
+  performance: number;
+};
+
+export default function AdaptiveDifficultyAdjuster({ difficulty, setDifficulty, performance }: AdaptiveDifficultyAdjusterProps) {
   const [state, formAction] = useActionState(getNewDifficulty, initialState);
   const { toast } = useToast();
-  const [performance, setPerformance] = useState(50);
-  const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>("Medium");
-  const [newDifficulty, setNewDifficulty] = useState<Difficulty | null>(null);
+
+  const currentDifficulty = difficulty;
 
   useEffect(() => {
     if (state.message && state.message !== "Success") {
@@ -53,14 +59,14 @@ export default function AdaptiveDifficultyAdjuster() {
       });
     }
     if (state.newDifficulty) {
-      setNewDifficulty(state.newDifficulty as Difficulty);
+      setDifficulty(state.newDifficulty as Difficulty);
     }
-  }, [state, toast]);
+  }, [state, toast, setDifficulty]);
 
   const getDifficultyChangeIcon = () => {
-    if (!newDifficulty || newDifficulty === currentDifficulty) return <Equal className="text-muted-foreground"/>;
+    if (!state.newDifficulty || state.newDifficulty === currentDifficulty) return <Equal className="text-muted-foreground"/>;
     const currentIndex = difficultyLevels.indexOf(currentDifficulty);
-    const newIndex = difficultyLevels.indexOf(newDifficulty);
+    const newIndex = difficultyLevels.indexOf(state.newDifficulty as Difficulty);
     if (newIndex > currentIndex) return <ArrowUp className="text-green-500"/>;
     return <ArrowDown className="text-red-500"/>;
   }
@@ -77,21 +83,21 @@ export default function AdaptiveDifficultyAdjuster() {
       <CardContent>
         <form action={formAction} className="space-y-6">
           <div className="space-y-3">
-            <Label htmlFor="performance">Recent Performance: {performance}%</Label>
+            <Label htmlFor="performance">Recent Performance: {Math.round(performance * 100)}%</Label>
             <Slider
               id="performance"
               name="performance"
               min={0}
               max={100}
-              step={10}
-              value={[performance]}
-              onValueChange={(value) => setPerformance(value[0])}
+              step={1}
+              value={[performance * 100]}
+              disabled
             />
-            <input type="hidden" name="performance" value={performance / 100} />
+            <input type="hidden" name="performance" value={performance} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="difficulty">Current Difficulty</Label>
-            <Select name="difficulty" value={currentDifficulty} onValueChange={(value: Difficulty) => setCurrentDifficulty(value)}>
+            <Select name="difficulty" value={currentDifficulty} onValueChange={(value: Difficulty) => setDifficulty(value)}>
               <SelectTrigger id="difficulty" className="w-full bg-background">
                 <SelectValue placeholder="Select difficulty" />
               </SelectTrigger>
@@ -109,8 +115,8 @@ export default function AdaptiveDifficultyAdjuster() {
             <h4 className="font-semibold text-center">AI Recommendation</h4>
             <div className="flex items-center justify-around text-center">
                 <div>
-                    <p className="text-xs text-muted-foreground">Current</p>
-                    <p className="font-bold">{currentDifficulty}</p>
+                    <p className="text-xs text-muted-foreground">Previous</p>
+                    <p className="font-bold">{difficultyLevels.find(l => l === state.newDifficulty) ? currentDifficulty : 'N/A'}</p>
                 </div>
                 <div className="p-2 bg-background rounded-full">{getDifficultyChangeIcon()}</div>
                 <div>

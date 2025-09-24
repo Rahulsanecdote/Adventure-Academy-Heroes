@@ -1,10 +1,18 @@
+
+'use client';
+
+import { useState } from 'react';
 import Header from "@/components/layout/header";
 import ProgressTracker from "@/components/dashboard/progress-tracker";
 import ObstacleCourse from "@/components/dashboard/obstacle-course";
 import VoiceActivity from "@/components/dashboard/voice-activity";
 import AdaptiveDifficultyAdjuster from "@/components/dashboard/adaptive-difficulty-adjuster";
+import { type Difficulty } from '@/lib/types';
 
 export default function Home() {
+  const [difficulty, setDifficulty] = useState<Difficulty>('Easy');
+  const [performance, setPerformance] = useState(0.5);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -17,11 +25,15 @@ export default function Home() {
           <div className="lg:col-span-1 space-y-8">
             <ProgressTracker />
             <VoiceActivity />
-            <AdaptiveDifficultyAdjuster />
+            <AdaptiveDifficultyAdjuster 
+              difficulty={difficulty} 
+              setDifficulty={setDifficulty} 
+              performance={performance}
+            />
           </div>
 
           <div className="lg:col-span-2">
-            <ObstacleCourse />
+            <ObstacleCourse difficulty={difficulty} setPerformance={setPerformance} />
           </div>
         </div>
       </main>

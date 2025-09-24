@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, XCircle, CaseUpper, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { type Difficulty } from '@/lib/types';
 
-const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
+const generateProblem = (difficulty: Difficulty) => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let letter: string;
   
@@ -19,17 +19,16 @@ const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
   return { letter };
 };
 
-export default function LetterRiverChallenge() {
-  const [problem, setProblem] = useState(generateProblem('Easy'));
+type ChallengeProps = {
+  difficulty: Difficulty;
+  onPerformanceUpdate: (correct: boolean) => void;
+};
+
+export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
+  const [problem, setProblem] = useState(generateProblem(difficulty));
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
-
-  const difficulty = useMemo(() => {
-    if (streak >= 10) return 'Hard';
-    if (streak >= 5) return 'Medium';
-    return 'Easy';
-  }, [streak]);
 
   const nextProblem = useCallback(() => {
     setProblem(generateProblem(difficulty));
@@ -39,7 +38,10 @@ export default function LetterRiverChallenge() {
   const handleKeyPress = useCallback((event: KeyboardEvent) => {
     if (feedback !== null) return;
 
-    if (event.key.toUpperCase() === problem.letter) {
+    const isCorrect = event.key.toUpperCase() === problem.letter;
+    onPerformanceUpdate(isCorrect);
+    
+    if (isCorrect) {
       setFeedback('correct');
       setStreak(s => s + 1);
       toast({
@@ -57,7 +59,7 @@ export default function LetterRiverChallenge() {
       });
        setTimeout(() => setFeedback(null), 1500);
     }
-  }, [problem, feedback, nextProblem, toast, streak]);
+  }, [problem, feedback, nextProblem, toast, onPerformanceUpdate]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);

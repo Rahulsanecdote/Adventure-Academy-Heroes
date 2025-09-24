@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, XCircle, Palette, RotateCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { type Difficulty } from '@/lib/types';
 
 const colors = [
     { name: 'Red', hex: '#ef4444' },
@@ -17,11 +17,24 @@ const colors = [
     { name: 'Purple', hex: '#8b5cf6' },
 ];
 
-const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
+const generateProblem = (difficulty: Difficulty) => {
   const targetColor = colors[Math.floor(Math.random() * colors.length)];
   
   let options = [targetColor];
-  const numOptions = difficulty === 'Easy' ? 2 : difficulty === 'Medium' ? 3 : 4;
+  let numOptions = 2;
+  switch (difficulty) {
+    case 'Very Easy':
+    case 'Easy':
+      numOptions = 2;
+      break;
+    case 'Medium':
+      numOptions = 3;
+      break;
+    case 'Hard':
+    case 'Very Hard':
+      numOptions = 4;
+      break;
+  }
 
   while (options.length < numOptions) {
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
@@ -36,15 +49,14 @@ const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
   };
 };
 
-export default function ColorCanyonChallenge() {
+type ChallengeProps = {
+  difficulty: Difficulty;
+  onPerformanceUpdate: (correct: boolean) => void;
+};
+
+export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
-
-  const difficulty = useMemo(() => {
-    if (streak >= 6) return 'Hard';
-    if (streak >= 3) return 'Medium';
-    return 'Easy';
-  }, [streak]);
 
   const [problem, setProblem] = useState(generateProblem(difficulty));
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
@@ -61,7 +73,10 @@ export default function ColorCanyonChallenge() {
   const handleSelectAnswer = (selectedColor: typeof colors[0]) => {
     if (feedback) return;
 
-    if (selectedColor.name === problem.targetColor.name) {
+    const isCorrect = selectedColor.name === problem.targetColor.name;
+    onPerformanceUpdate(isCorrect);
+
+    if (isCorrect) {
       setFeedback('correct');
       setStreak(s => s + 1);
       toast({

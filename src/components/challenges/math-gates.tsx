@@ -1,30 +1,37 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, XCircle, ArrowRight, BrainCircuit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { type Difficulty } from '@/lib/types';
 
 type Operation = '+' | '-';
 
-const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
+const generateProblem = (difficulty: Difficulty) => {
   let num1: number, num2: number, operation: Operation;
   
   switch(difficulty) {
-    case 'Hard':
+    case 'Very Hard':
       num1 = Math.floor(Math.random() * 90) + 10;
       num2 = Math.floor(Math.random() * 90) + 10;
       operation = Math.random() > 0.5 ? '+' : '-';
       break;
+    case 'Hard':
+      num1 = Math.floor(Math.random() * 50) + 10;
+      num2 = Math.floor(Math.random() * 50) + 10;
+      operation = Math.random() > 0.5 ? '+' : '-';
+      break;
     case 'Medium':
-      num1 = Math.floor(Math.random() * 50) + 1;
-      num2 = Math.floor(Math.random() * 50) + 1;
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 20) + 1;
       operation = Math.random() > 0.5 ? '+' : '-';
       break;
     case 'Easy':
+    case 'Very Easy':
     default:
       num1 = Math.floor(Math.random() * 10) + 1;
       num2 = Math.floor(Math.random() * 10) + 1;
@@ -46,26 +53,32 @@ const generateProblem = (difficulty: 'Easy' | 'Medium' | 'Hard') => {
   };
 };
 
-export default function MathGatesChallenge() {
-  const [problem, setProblem] = useState(generateProblem('Easy'));
+type ChallengeProps = {
+  difficulty: Difficulty;
+  onPerformanceUpdate: (correct: boolean) => void;
+};
+
+
+export default function MathGatesChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
+  const [problem, setProblem] = useState(generateProblem(difficulty));
   const [userAnswer, setUserAnswer] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
-
-  const difficulty = useMemo(() => {
-    if (streak >= 10) return 'Hard';
-    if (streak >= 5) return 'Medium';
-    return 'Easy';
-  }, [streak]);
   
   useEffect(() => {
     setProblem(generateProblem(difficulty));
+    setUserAnswer('');
+    setFeedback(null);
   }, [difficulty]);
   
   const handleCheckAnswer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (parseInt(userAnswer) === problem.answer) {
+
+    const isCorrect = parseInt(userAnswer) === problem.answer;
+    onPerformanceUpdate(isCorrect);
+
+    if (isCorrect) {
       setFeedback('correct');
       setStreak(s => s + 1);
       toast({
