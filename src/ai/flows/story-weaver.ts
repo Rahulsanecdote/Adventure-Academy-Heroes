@@ -75,14 +75,14 @@ const storyWeaverFlow = ai.defineFlow(
     outputSchema: StoryWeaverOutputSchema,
   },
   async input => {
-    const { output } = await storyPrompt(input);
-    if (!output) {
+    const { output: storyOutput } = await storyPrompt(input);
+    if (!storyOutput) {
       throw new Error('Failed to generate story.');
     }
 
     const { media } = await ai.generate({
       model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: output.imagePrompt,
+      prompt: storyOutput.imagePrompt,
     });
     
     const imageUrl = media?.url;
@@ -91,7 +91,7 @@ const storyWeaverFlow = ai.defineFlow(
     }
 
     return {
-      story: output.story,
+      story: storyOutput.story,
       image: imageUrl,
     };
   }
