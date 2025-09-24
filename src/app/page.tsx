@@ -7,6 +7,7 @@ import ProgressTracker from "@/components/dashboard/progress-tracker";
 import ObstacleCourse from "@/components/dashboard/obstacle-course";
 import VoiceActivity from "@/components/dashboard/voice-activity";
 import AdaptiveDifficultyAdjuster from "@/components/dashboard/adaptive-difficulty-adjuster";
+import StoryWeaver from "@/components/dashboard/story-weaver";
 import { type Difficulty } from '@/lib/types';
 import { calculateLevel } from '@/lib/xp';
 
@@ -33,6 +34,7 @@ export default function Home() {
           <div className="lg:col-span-1 space-y-8">
             <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} />
             <VoiceActivity />
+            <StoryWeaver heroName="Alex" level={level} />
             <AdaptiveDifficultyAdjuster 
               difficulty={difficulty} 
               setDifficulty={setDifficulty} 

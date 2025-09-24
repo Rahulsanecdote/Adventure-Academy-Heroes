@@ -8,6 +8,10 @@ import {
   voicePronunciationPractice,
   VoicePronunciationPracticeInput,
 } from "@/ai/flows/voice-pronunciation-practice";
+import { 
+  storyWeaver, 
+  StoryWeaverInput 
+} from "@/ai/flows/story-weaver";
 import { z } from "zod";
 import { difficultyLevels } from "@/lib/types";
 
@@ -70,6 +74,38 @@ export async function getNewDifficulty(prevState: any, formData: FormData) {
     console.error(error);
     return {
       message: "An error occurred while adjusting difficulty.",
+    };
+  }
+}
+
+export async function getStory(prevState: any, formData: FormData) {
+  const schema = z.object({
+    heroName: z.string().min(1, "Please enter a name"),
+    level: z.coerce.number(),
+  });
+
+  const validatedFields = schema.safeParse({
+    heroName: formData.get("heroName"),
+    level: formData.get("level"),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed",
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result = await storyWeaver(validatedFields.data);
+    return {
+      message: "Success",
+      story: result.story,
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      message: "An error occurred while weaving the story.",
     };
   }
 }
