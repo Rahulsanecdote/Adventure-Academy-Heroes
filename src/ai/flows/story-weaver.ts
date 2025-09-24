@@ -85,7 +85,7 @@ const storyWeaverFlow = ai.defineFlow(
       prompt: storyOutput.imagePrompt,
     });
     
-    const imageUrl = media.url;
+    const imageUrl = media?.url;
     if (!imageUrl) {
         throw new Error('Failed to generate image.');
     }
