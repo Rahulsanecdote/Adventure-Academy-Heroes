@@ -74,37 +74,27 @@ Consider the following examples:
 Childs Performance: 0.9
 Current Difficulty: Easy
 Output:
-\`\`\`json
 {
   "newDifficulty": "Medium",
   "reasoning": "The childs performance is very high, so the difficulty was increased from Easy to Medium."
 }
-\`\`\`
 
 Childs Performance: 0.1
 Current Difficulty: Medium
 Output:
-\`\`\`json
 {
   "newDifficulty": "Easy",
   "reasoning": "The childs performance is very low, so the difficulty was decreased from Medium to Easy."
 }
-\`\`\`
 
 Childs Performance: 0.5
 Current Difficulty: Medium
 Output:
-\`\`\`json
 {
   "newDifficulty": "Medium",
   "reasoning": "The childs performance is neither very high nor very low, so the difficulty was kept the same."
 }
-\`\`\`
-
-Output:
-\`\`\`json
-{
-  "newDifficulty": "`,
+`,
   config: {
     safetySettings: [
       {
