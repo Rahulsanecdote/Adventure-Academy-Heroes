@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useEffect, useState, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { BrainCircuit, Loader, Wand2, ArrowDown, ArrowUp, Equal } from "lucide-react";
 import { getNewDifficulty } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ function SubmitButton() {
 }
 
 export default function AdaptiveDifficultyAdjuster() {
-  const [state, formAction] = useFormState(getNewDifficulty, initialState);
+  const [state, formAction] = useActionState(getNewDifficulty, initialState);
   const { toast } = useToast();
   const [performance, setPerformance] = useState(50);
   const [currentDifficulty, setCurrentDifficulty] = useState<Difficulty>("Medium");

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useEffect, useRef, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Mic, Loader, Play, Volume2 } from "lucide-react";
 import { getPronunciation } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ function SubmitButton() {
 }
 
 export default function VoiceActivity() {
-  const [state, formAction] = useFormState(getPronunciation, initialState);
+  const [state, formAction] = useActionState(getPronunciation, initialState);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
