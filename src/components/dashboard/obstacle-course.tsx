@@ -12,25 +12,29 @@ import LetterRiverChallenge from "@/components/challenges/letter-river";
 import ShapeForestChallenge from "@/components/challenges/shape-forest";
 import ColorCanyonChallenge from "@/components/challenges/color-canyon";
 import { type Difficulty } from "@/lib/types";
+import { XP_PER_CORRECT_ANSWER } from "@/lib/xp";
 
 type ObstacleCourseProps = {
   difficulty: Difficulty;
   setPerformance: React.Dispatch<React.SetStateAction<number>>;
   hp: number;
   setHp: React.Dispatch<React.SetStateAction<number>>;
+  setXp: React.Dispatch<React.SetStateAction<number>>;
 };
 
 const EMA_ALPHA = 0.2; // Smoothing factor for performance updates
 
-export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp }: ObstacleCourseProps) {
+export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, setXp }: ObstacleCourseProps) {
   const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
 
   const handlePerformanceUpdate = useCallback((isCorrect: boolean) => {
     setPerformance(prev => (prev * (1 - EMA_ALPHA)) + (isCorrect ? 1 : 0) * EMA_ALPHA);
     if (!isCorrect) {
       setHp(prevHp => Math.max(0, prevHp - 10));
+    } else {
+      setXp(prevXp => prevXp + XP_PER_CORRECT_ANSWER);
     }
-  }, [setPerformance, setHp]);
+  }, [setPerformance, setHp, setXp]);
 
   const challenges = useMemo(() => [
     {

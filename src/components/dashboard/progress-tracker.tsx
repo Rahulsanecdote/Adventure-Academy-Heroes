@@ -3,6 +3,7 @@ import { Award, Gem, Star, Trophy, Heart, PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "../ui/button";
+import { getLevelProgress, xpForLevel } from "@/lib/xp";
 
 const badges = [
   { icon: Star, color: "text-yellow-400", label: "First Steps" },
@@ -14,12 +15,17 @@ const badges = [
 type ProgressTrackerProps = {
   hp: number;
   setHp: React.Dispatch<React.SetStateAction<number>>;
+  xp: number;
+  level: number;
 }
 
-export default function ProgressTracker({ hp, setHp }: ProgressTrackerProps) {
+export default function ProgressTracker({ hp, setHp, xp, level }: ProgressTrackerProps) {
   const handleHeal = () => {
     setHp(currentHp => Math.min(100, currentHp + 20));
   }
+  
+  const progress = getLevelProgress(xp);
+  const xpForNextLevel = xpForLevel(level + 1) - xp;
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -32,15 +38,15 @@ export default function ProgressTracker({ hp, setHp }: ProgressTrackerProps) {
       <CardContent className="space-y-6">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">Current Level</p>
-          <p className="text-5xl font-bold text-primary">12</p>
+          <p className="text-5xl font-bold text-primary">{level}</p>
         </div>
         <div className="space-y-2">
             <div className="flex justify-between text-sm font-medium">
                 <span className="text-muted-foreground">Level Progress</span>
-                <span className="text-primary-foreground">65%</span>
+                <span className="text-primary-foreground">{progress}%</span>
             </div>
-          <Progress value={65} className="h-3" />
-          <p className="text-xs text-muted-foreground text-center pt-1">350 XP to next level!</p>
+          <Progress value={progress} className="h-3" />
+          <p className="text-xs text-muted-foreground text-center pt-1">{xpForNextLevel} XP to next level!</p>
         </div>
 
         <div className="space-y-2">

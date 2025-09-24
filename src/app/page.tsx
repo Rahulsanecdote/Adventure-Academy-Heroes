@@ -1,18 +1,25 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from "@/components/layout/header";
 import ProgressTracker from "@/components/dashboard/progress-tracker";
 import ObstacleCourse from "@/components/dashboard/obstacle-course";
 import VoiceActivity from "@/components/dashboard/voice-activity";
 import AdaptiveDifficultyAdjuster from "@/components/dashboard/adaptive-difficulty-adjuster";
 import { type Difficulty } from '@/lib/types';
+import { calculateLevel } from '@/lib/xp';
 
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>('Easy');
   const [performance, setPerformance] = useState(0.5);
   const [hp, setHp] = useState(100);
+  const [xp, setXp] = useState(1150);
+  const [level, setLevel] = useState(1);
+
+  useEffect(() => {
+    setLevel(calculateLevel(xp));
+  }, [xp]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -24,7 +31,7 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            <ProgressTracker hp={hp} setHp={setHp} />
+            <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} />
             <VoiceActivity />
             <AdaptiveDifficultyAdjuster 
               difficulty={difficulty} 
@@ -34,7 +41,13 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-2">
-            <ObstacleCourse difficulty={difficulty} setPerformance={setPerformance} hp={hp} setHp={setHp} />
+            <ObstacleCourse 
+              difficulty={difficulty} 
+              setPerformance={setPerformance} 
+              hp={hp} 
+              setHp={setHp}
+              setXp={setXp}
+            />
           </div>
         </div>
       </main>
