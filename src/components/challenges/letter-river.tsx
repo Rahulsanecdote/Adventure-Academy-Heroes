@@ -7,16 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle, XCircle, CaseUpper, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { type Difficulty } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 const generateProblem = (difficulty: Difficulty) => {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let letter: string;
-  
   const getRandomLetter = () => alphabet[Math.floor(Math.random() * alphabet.length)];
-
-  letter = getRandomLetter();
-  
-  return { letter };
+  return { letter: getRandomLetter() };
 };
 
 type ChallengeProps = {
@@ -27,18 +24,23 @@ type ChallengeProps = {
 export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
   const [problem, setProblem] = useState(generateProblem(difficulty));
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
 
   const nextProblem = useCallback(() => {
     setProblem(generateProblem(difficulty));
     setFeedback(null);
+    setPressedKey(null);
   }, [difficulty]);
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+  const handleAnswer = useCallback((key: string) => {
     if (feedback !== null) return;
+    
+    const pressed = key.toUpperCase();
+    setPressedKey(pressed);
 
-    const isCorrect = event.key.toUpperCase() === problem.letter;
+    const isCorrect = pressed === problem.letter;
     onPerformanceUpdate(isCorrect);
     
     if (isCorrect) {
@@ -57,9 +59,18 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
         title: "Not quite!",
         description: "That's not the right letter. Try again!",
       });
-       setTimeout(() => setFeedback(null), 1500);
+       setTimeout(() => {
+        setFeedback(null);
+        setPressedKey(null);
+       }, 1500);
     }
   }, [problem, feedback, nextProblem, toast, onPerformanceUpdate]);
+
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    if (event.key.length === 1 && event.key.match(/[a-zA-Z]/)) {
+        handleAnswer(event.key);
+    }
+  }, [handleAnswer]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -79,7 +90,7 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
             <CaseUpper className="text-primary"/>
             Letter Recognition River
         </CardTitle>
-        <CardDescription>Type the letter shown on the stone to cross!</CardDescription>
+        <CardDescription>Type or click the letter shown on the stone!</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 flex flex-col items-center">
         <div className="flex justify-center items-center h-40 w-40 bg-muted rounded-full border-4 border-dashed border-border">
@@ -96,10 +107,52 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
             <span>{feedback === 'correct' ? 'Correct!' : 'Incorrect!'}</span>
           </div>
         )}
+        
+        <div className="w-full max-w-md space-y-2">
+            <div className="grid grid-cols-10 gap-2">
+                {'QWERTYUIOP'.split('').map(key => (
+                    <Button
+                        key={key}
+                        onClick={() => handleAnswer(key)}
+                        disabled={!!feedback}
+                        variant="outline"
+                        className={cn("p-2 h-auto text-lg font-mono", pressedKey === key && feedback === 'correct' && 'bg-green-500/50', pressedKey === key && feedback === 'incorrect' && 'bg-red-500/50')}
+                    >
+                        {key}
+                    </Button>
+                ))}
+            </div>
+            <div className="grid grid-cols-9 gap-2 pl-[5%] pr-[5%]">
+                 {'ASDFGHJKL'.split('').map(key => (
+                    <Button
+                        key={key}
+                        onClick={() => handleAnswer(key)}
+                        disabled={!!feedback}
+                        variant="outline"
+                        className={cn("p-2 h-auto text-lg font-mono", pressedKey === key && feedback === 'correct' && 'bg-green-500/50', pressedKey === key && feedback === 'incorrect' && 'bg-red-500/50')}
+                    >
+                        {key}
+                    </Button>
+                ))}
+            </div>
+            <div className="grid grid-cols-7 gap-2 pl-[15%] pr-[15%]">
+                 {'ZXCVBNM'.split('').map(key => (
+                    <Button
+                        key={key}
+                        onClick={() => handleAnswer(key)}
+                        disabled={!!feedback}
+                        variant="outline"
+                        className={cn("p-2 h-auto text-lg font-mono", pressedKey === key && feedback === 'correct' && 'bg-green-500/50', pressedKey === key && feedback === 'incorrect' && 'bg-red-500/50')}
+                    >
+                        {key}
+                    </Button>
+                ))}
+            </div>
+        </div>
+
 
         <div className="text-center text-sm text-muted-foreground">
             <p>Current Streak: <span className="font-bold text-primary">{streak}</span></p>
-            <p>Difficulty: <span className="font-bold">{difficulty}</span></p>
         </div>
 
         <Button onClick={nextProblem}>Skip Letter</Button>
