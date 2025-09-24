@@ -20,11 +20,13 @@ type ObstacleCourseProps = {
   hp: number;
   setHp: React.Dispatch<React.SetStateAction<number>>;
   setXp: React.Dispatch<React.SetStateAction<number>>;
+  setTreasures: React.Dispatch<React.SetStateAction<number>>;
 };
 
 const EMA_ALPHA = 0.2; // Smoothing factor for performance updates
+const TREASURE_CHANCE = 0.25; // 25% chance to get a treasure
 
-export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, setXp }: ObstacleCourseProps) {
+export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, setXp, setTreasures }: ObstacleCourseProps) {
   const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
 
   const handlePerformanceUpdate = useCallback((isCorrect: boolean) => {
@@ -33,8 +35,11 @@ export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, 
       setHp(prevHp => Math.max(0, prevHp - 10));
     } else {
       setXp(prevXp => prevXp + XP_PER_CORRECT_ANSWER);
+      if (Math.random() < TREASURE_CHANCE) {
+        setTreasures(prevTreasures => prevTreasures + 1);
+      }
     }
-  }, [setPerformance, setHp, setXp]);
+  }, [setPerformance, setHp, setXp, setTreasures]);
 
   const challenges = useMemo(() => [
     {

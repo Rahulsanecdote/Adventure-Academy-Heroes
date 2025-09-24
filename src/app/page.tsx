@@ -17,6 +17,7 @@ export default function Home() {
   const [hp, setHp] = useState(100);
   const [xp, setXp] = useState(1150);
   const [level, setLevel] = useState(1);
+  const [treasures, setTreasures] = useState(42);
 
   useEffect(() => {
     setLevel(calculateLevel(xp));
@@ -32,7 +33,7 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} />
+            <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} treasures={treasures} />
             <VoiceActivity />
             <StoryWeaver heroName="Alex" level={level} />
             <AdaptiveDifficultyAdjuster 
@@ -49,6 +50,7 @@ export default function Home() {
               hp={hp} 
               setHp={setHp}
               setXp={setXp}
+              setTreasures={setTreasures}
             />
           </div>
         </div>

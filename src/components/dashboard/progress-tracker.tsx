@@ -17,9 +17,10 @@ type ProgressTrackerProps = {
   setHp: React.Dispatch<React.SetStateAction<number>>;
   xp: number;
   level: number;
+  treasures: number;
 }
 
-export default function ProgressTracker({ hp, setHp, xp, level }: ProgressTrackerProps) {
+export default function ProgressTracker({ hp, setHp, xp, level, treasures }: ProgressTrackerProps) {
   const handleHeal = () => {
     setHp(currentHp => Math.min(100, currentHp + 20));
   }
@@ -80,7 +81,7 @@ export default function ProgressTracker({ hp, setHp, xp, level }: ProgressTracke
           <h4 className="font-semibold text-foreground">Treasures</h4>
           <div className="flex items-center gap-2 font-bold text-accent">
             <Gem />
-            <span>42</span>
+            <span>{treasures}</span>
           </div>
         </div>
       </CardContent>
