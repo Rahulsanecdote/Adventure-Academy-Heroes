@@ -16,16 +16,21 @@ import { type Difficulty } from "@/lib/types";
 type ObstacleCourseProps = {
   difficulty: Difficulty;
   setPerformance: React.Dispatch<React.SetStateAction<number>>;
+  hp: number;
+  setHp: React.Dispatch<React.SetStateAction<number>>;
 };
 
 const EMA_ALPHA = 0.2; // Smoothing factor for performance updates
 
-export default function ObstacleCourse({ difficulty, setPerformance }: ObstacleCourseProps) {
+export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp }: ObstacleCourseProps) {
   const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
 
   const handlePerformanceUpdate = useCallback((isCorrect: boolean) => {
     setPerformance(prev => (prev * (1 - EMA_ALPHA)) + (isCorrect ? 1 : 0) * EMA_ALPHA);
-  }, [setPerformance]);
+    if (!isCorrect) {
+      setHp(prevHp => Math.max(0, prevHp - 10));
+    }
+  }, [setPerformance, setHp]);
 
   const challenges = useMemo(() => [
     {
@@ -102,8 +107,10 @@ export default function ObstacleCourse({ difficulty, setPerformance }: ObstacleC
               <Button
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
                 onClick={() => setActiveChallenge(challenge.id)}
+                disabled={hp <= 0}
               >
-                Start Challenge <ArrowRight className="ml-2 w-4 h-4" />
+                {hp <= 0 ? "Not enough HP" : "Start Challenge"}
+                {hp > 0 && <ArrowRight className="ml-2 w-4 h-4" />}
               </Button>
             </CardFooter>
           </Card>

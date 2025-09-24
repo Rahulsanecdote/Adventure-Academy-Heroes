@@ -12,6 +12,7 @@ import { type Difficulty } from '@/lib/types';
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>('Easy');
   const [performance, setPerformance] = useState(0.5);
+  const [hp, setHp] = useState(100);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -23,7 +24,7 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            <ProgressTracker />
+            <ProgressTracker hp={hp} setHp={setHp} />
             <VoiceActivity />
             <AdaptiveDifficultyAdjuster 
               difficulty={difficulty} 
@@ -33,7 +34,7 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-2">
-            <ObstacleCourse difficulty={difficulty} setPerformance={setPerformance} />
+            <ObstacleCourse difficulty={difficulty} setPerformance={setPerformance} hp={hp} setHp={setHp} />
           </div>
         </div>
       </main>

@@ -1,6 +1,8 @@
-import { Award, Gem, Star, Trophy } from "lucide-react";
+
+import { Award, Gem, Star, Trophy, Heart, PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "../ui/button";
 
 const badges = [
   { icon: Star, color: "text-yellow-400", label: "First Steps" },
@@ -9,7 +11,16 @@ const badges = [
   { icon: Gem, color: "text-purple-400", label: "Creative Genius" },
 ];
 
-export default function ProgressTracker() {
+type ProgressTrackerProps = {
+  hp: number;
+  setHp: React.Dispatch<React.SetStateAction<number>>;
+}
+
+export default function ProgressTracker({ hp, setHp }: ProgressTrackerProps) {
+  const handleHeal = () => {
+    setHp(currentHp => Math.min(100, currentHp + 20));
+  }
+
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
@@ -31,6 +42,21 @@ export default function ProgressTracker() {
           <Progress value={65} className="h-3" />
           <p className="text-xs text-muted-foreground text-center pt-1">350 XP to next level!</p>
         </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <h4 className="font-semibold text-foreground flex items-center gap-2"><Heart className="text-red-500"/> Health</h4>
+            <span className="font-bold text-lg">{hp}/100</span>
+          </div>
+          <Progress value={hp} className="h-4 [&>div]:bg-red-500" />
+          <div className="flex justify-center">
+             <Button onClick={handleHeal} disabled={hp === 100} size="sm" variant="outline" className="mt-2">
+              <PlusCircle className="mr-2 h-4 w-4"/>
+              Heal (20 HP)
+            </Button>
+          </div>
+        </div>
+
         <div className="space-y-3">
           <h4 className="font-semibold text-foreground">Hero Badges</h4>
           <div className="grid grid-cols-4 gap-4">
