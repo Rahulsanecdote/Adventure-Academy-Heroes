@@ -7,9 +7,12 @@ import ProgressTracker from "@/components/dashboard/progress-tracker";
 import ObstacleCourse from "@/components/dashboard/obstacle-course";
 import VoiceActivity from "@/components/dashboard/voice-activity";
 import AdaptiveDifficultyAdjuster from "@/components/dashboard/adaptive-difficulty-adjuster";
-import StoryWeaver from "@/components/dashboard/story-weaver";
 import { type Difficulty } from '@/lib/types';
 import { calculateLevel } from '@/lib/xp';
+import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BookMarked, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>('Easy');
@@ -35,7 +38,23 @@ export default function Home() {
           <div className="lg:col-span-1 space-y-8">
             <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} treasures={treasures} />
             <VoiceActivity />
-            <StoryWeaver heroName="Alex" level={level} />
+             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline">
+                  <BookMarked className="text-accent" />
+                  Skit Weaver AI
+                </CardTitle>
+                <CardDescription>Create a unique adventure skit, one line at a time in a dedicated app experience.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/story-weaver">
+                  <Button className="w-full">
+                    Launch Skit Weaver
+                    <ArrowRight className="ml-2"/>
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
             <AdaptiveDifficultyAdjuster 
               difficulty={difficulty} 
               setDifficulty={setDifficulty} 
