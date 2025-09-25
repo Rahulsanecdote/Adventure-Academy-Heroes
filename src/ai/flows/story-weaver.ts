@@ -12,17 +12,15 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const StoryWeaverInputSchema = z.object({
-  heroName: z.string().describe('The name of the hero of the story.'),
-  level: z
-    .number()
-    .describe('The current level of the hero, indicating their experience.'),
+  characterName: z.string().describe('The name of the character speaking or acting.'),
+  storyHistory: z.string().describe('The story so far, as a single string.'),
 });
 export type StoryWeaverInput = z.infer<typeof StoryWeaverInputSchema>;
 
 const StoryWeaverOutputSchema = z.object({
-  story: z
+  storyContinuation: z
     .string()
-    .describe('A short, engaging adventure story for a child.'),
+    .describe('The next part of the skit, as a single line of dialogue or action.'),
 });
 export type StoryWeaverOutput = z.infer<typeof StoryWeaverOutputSchema>;
 
@@ -36,21 +34,33 @@ const storyPrompt = ai.definePrompt({
   name: 'storyWeaverStoryPrompt',
   input: {schema: StoryWeaverInputSchema},
   output: {schema: StoryWeaverOutputSchema},
-  prompt: `You are a master storyteller for children, known as the Story Weaver.
-Create a short (3-4 paragraphs), exciting, and age-appropriate adventure story.
+  prompt: `You are a "Skit Master," an expert at creating fun, simple, and continuous skits for children.
+Your task is to continue a story, one line at a time.
+You will be given the story so far and the name of the character who is currently speaking or acting.
+Generate a single, short, and exciting line of dialogue or a simple action for that character.
+If the story history is empty, start a new, exciting adventure!
 
-The hero of the story is named {{{heroName}}}.
-The hero is at level {{{level}}}, which should influence the challenge and complexity of the story. A higher level means a greater challenge.
+The current character is: {{{characterName}}}
 
-The story should have a clear beginning, a challenge to overcome, and a satisfying resolution where the hero uses their wits or skills.
-Keep the tone encouraging, positive, and full of wonder.
+Here is the story so far:
+---
+{{{storyHistory}}}
+---
 
-Example for a low-level hero:
-Hero Name: Lily
-Level: 2
+Example 1 (Starting a story):
+Character Name: Captain Mia
+Story History: (empty)
 Output:
 {
-  "story": "Lily, a brave Level 2 adventurer, found a map showing a secret garden behind the Whispering Waterfall. To get there, she had to solve a riddle from a friendly gnome. \"I have keys, but open no locks. I have a space, but no room. You can enter, but can't go outside. What am I?\" Lily thought hard and realized the answer was a keyboard! The gnome cheered and showed her the way to a beautiful garden filled with glowing flowers."
+  "storyContinuation": "Captain Mia stood at the helm of her spaceship, gazing at the shimmering Purple Planet. \"Looks like we're here!\" she announced."
+}
+
+Example 2 (Continuing a story):
+Character Name: Sparky the Robot
+Story History: Captain Mia stood at the helm of her spaceship, gazing at the shimmering Purple Planet. "Looks like we're here!" she announced.
+Output:
+{
+  "storyContinuation": "Sparky the Robot beeped excitedly, his metallic arms waving. \"Warning! Asteroid field approaching!\""
 }
 `,
 });
@@ -63,12 +73,9 @@ const storyWeaverFlow = ai.defineFlow(
   },
   async input => {
     const { output } = await storyPrompt(input);
-    if (!output?.story) {
-      throw new Error('Failed to generate story.');
+    if (!output) {
+      throw new Error('Failed to generate story continuation.');
     }
-
-    return {
-      story: output.story,
-    };
+    return output;
   }
 );

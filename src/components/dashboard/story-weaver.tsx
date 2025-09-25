@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useActionState } from "react";
+import { useEffect, useActionState, useState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { BookMarked, Loader, Wand2 } from "lucide-react";
 import { getStory } from "@/app/actions";
@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
+import { ScrollArea } from "../ui/scroll-area";
 
 const initialState = {
   message: "",
-  story: null,
+  storyContinuation: null,
   errors: null,
 };
 
@@ -30,7 +30,7 @@ function SubmitButton() {
       ) : (
         <>
           <Wand2 className="mr-2 h-4 w-4" />
-          Weave a Story
+          Continue Skit
         </>
       )}
     </Button>
@@ -43,48 +43,79 @@ type StoryWeaverProps = {
 };
 
 export default function StoryWeaver({ heroName, level }: StoryWeaverProps) {
+  const [storyHistory, setStoryHistory] = useState<string[]>([]);
+  const [characterName, setCharacterName] = useState(heroName);
   const [state, formAction] = useActionState(getStory, initialState);
   const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (state.message && state.message !== "Success") {
       toast({
         variant: "destructive",
         title: "Oh no! Something went wrong.",
-        description: state.message || (state.errors as any)?.heroName?.[0] || (state.errors as any)?.level?.[0] || "An unknown error occurred.",
+        description: state.message || (state.errors as any)?.characterName?.[0] || "An unknown error occurred.",
       });
     }
+
+    if (state.message === "Success" && state.storyContinuation) {
+      setStoryHistory(prev => [...prev, state.storyContinuation!]);
+      // Reset the form / state after successful submission
+      if(formRef.current) formRef.current.reset();
+      setCharacterName("");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, toast]);
+
+  const handleResetStory = () => {
+    setStoryHistory([]);
+  };
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 font-headline">
-          <BookMarked className="text-accent" />
-          Story Weaver AI
-        </CardTitle>
-        <CardDescription>Create a unique adventure story for your hero.</CardDescription>
+        <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2 font-headline">
+              <BookMarked className="text-accent" />
+              Skit Weaver AI
+            </CardTitle>
+            {storyHistory.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={handleResetStory}>Reset</Button>
+            )}
+        </div>
+        <CardDescription>Create a unique adventure skit, one line at a time.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form ref={formRef} action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="heroName">Hero&apos;s Name</Label>
+            <Label htmlFor="characterName">Character Name</Label>
             <Input
-              id="heroName"
-              name="heroName"
-              defaultValue={heroName}
+              id="characterName"
+              name="characterName"
+              value={characterName}
+              onChange={(e) => setCharacterName(e.target.value)}
+              placeholder="e.g., Alex the Brave"
               required
               className="bg-background"
             />
-             {state.errors?.heroName && <p className="text-sm font-medium text-destructive">{state.errors.heroName[0]}</p>}
+             {state.errors?.characterName && <p className="text-sm font-medium text-destructive">{state.errors.characterName[0]}</p>}
           </div>
-          <input type="hidden" name="level" value={level} />
+          <input type="hidden" name="storyHistory" value={storyHistory.join('\n')} />
           <SubmitButton />
         </form>
-        {state.story && (
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-3">
-             <h4 className="font-semibold text-center">A Hero's Tale</h4>
-             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{state.story}</p>
+        
+        {storyHistory.length > 0 && (
+          <div className="mt-6 space-y-3">
+             <h4 className="font-semibold text-center">Your Adventure Skit</h4>
+             <ScrollArea className="h-48 w-full rounded-md border p-4 bg-muted/50">
+              <div className="space-y-4">
+                {storyHistory.map((line, index) => (
+                  <p key={index} className="text-sm text-foreground leading-relaxed">
+                    {line}
+                  </p>
+                ))}
+              </div>
+             </ScrollArea>
           </div>
         )}
       </CardContent>

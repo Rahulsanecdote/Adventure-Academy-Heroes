@@ -80,13 +80,13 @@ export async function getNewDifficulty(prevState: any, formData: FormData) {
 
 export async function getStory(prevState: any, formData: FormData) {
   const schema = z.object({
-    heroName: z.string().min(1, "Please enter a name"),
-    level: z.coerce.number(),
+    characterName: z.string().min(1, "Please enter a character name"),
+    storyHistory: z.string(),
   });
 
   const validatedFields = schema.safeParse({
-    heroName: formData.get("heroName"),
-    level: formData.get("level"),
+    characterName: formData.get("characterName"),
+    storyHistory: formData.get("storyHistory"),
   });
 
   if (!validatedFields.success) {
@@ -100,7 +100,7 @@ export async function getStory(prevState: any, formData: FormData) {
     const result = await storyWeaver(validatedFields.data);
     return {
       message: "Success",
-      story: result.story,
+      storyContinuation: result.storyContinuation,
     };
   } catch (error) {
     console.error(error);
