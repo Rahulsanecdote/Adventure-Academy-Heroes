@@ -66,18 +66,17 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
     }
   }, [problem, feedback, nextProblem, toast, onPerformanceUpdate]);
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    if (event.key.length === 1 && event.key.match(/[a-zA-Z]/)) {
-        handleAnswer(event.key);
-    }
-  }, [handleAnswer]);
-
   useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key.length === 1 && event.key.match(/[a-zA-Z]/)) {
+          handleAnswer(event.key);
+      }
+    };
     window.addEventListener('keydown', handleKeyPress);
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [handleKeyPress]);
+  }, [handleAnswer]);
 
   useEffect(() => {
     setProblem(generateProblem(difficulty));
