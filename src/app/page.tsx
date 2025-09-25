@@ -36,7 +36,14 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            <ProgressTracker hp={hp} setHp={setHp} xp={xp} level={level} treasures={treasures} />
+            <ProgressTracker 
+              hp={hp} 
+              setHp={setHp} 
+              xp={xp} 
+              level={level} 
+              treasures={treasures}
+              setTreasures={setTreasures} 
+            />
             <VoiceActivity />
              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>

@@ -12,21 +12,29 @@ const badges = [
   { icon: Gem, color: "text-purple-400", label: "Creative Genius" },
 ];
 
+const HEAL_COST = 5;
+const HEAL_AMOUNT = 20;
+
 type ProgressTrackerProps = {
   hp: number;
   setHp: React.Dispatch<React.SetStateAction<number>>;
   xp: number;
   level: number;
   treasures: number;
+  setTreasures: React.Dispatch<React.SetStateAction<number>>;
 }
 
-export default function ProgressTracker({ hp, setHp, xp, level, treasures }: ProgressTrackerProps) {
+export default function ProgressTracker({ hp, setHp, xp, level, treasures, setTreasures }: ProgressTrackerProps) {
   const handleHeal = () => {
-    setHp(currentHp => Math.min(100, currentHp + 20));
+    if (treasures >= HEAL_COST && hp < 100) {
+      setHp(currentHp => Math.min(100, currentHp + HEAL_AMOUNT));
+      setTreasures(currentTreasures => currentTreasures - HEAL_COST);
+    }
   }
   
   const progress = getLevelProgress(xp);
   const xpForNextLevel = xpForLevel(level + 1) - xp;
+  const canHeal = treasures >= HEAL_COST && hp < 100;
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -57,9 +65,10 @@ export default function ProgressTracker({ hp, setHp, xp, level, treasures }: Pro
           </div>
           <Progress value={hp} className="h-4 [&>div]:bg-red-500" />
           <div className="flex justify-center">
-             <Button onClick={handleHeal} disabled={hp === 100} size="sm" variant="outline" className="mt-2">
+             <Button onClick={handleHeal} disabled={!canHeal} size="sm" variant="outline" className="mt-2">
               <PlusCircle className="mr-2 h-4 w-4"/>
-              Heal (20 HP)
+              Heal ({HEAL_AMOUNT} HP) - {HEAL_COST}
+              <Gem className="ml-2 h-4 w-4 text-accent"/>
             </Button>
           </div>
         </div>
