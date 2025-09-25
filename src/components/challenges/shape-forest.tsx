@@ -96,7 +96,7 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
         title: "Correct!",
         description: "You found the right shape!",
       });
-      setTimeout(() => nextProblem(), 1000);
+      setTimeout(nextProblem, 1000);
     } else {
       setFeedback('incorrect');
       setStreak(0);
@@ -110,7 +110,7 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
   }, [feedback, problem.targetShape, onPerformanceUpdate, toast, nextProblem]);
 
   return (
-    <Card className="border-0 shadow-none">
+    <Card className="border-0 shadow-none w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2 font-headline text-2xl">
             <Shapes className="text-primary"/>

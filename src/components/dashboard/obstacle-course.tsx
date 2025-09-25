@@ -1,16 +1,12 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useMemo, useCallback } from "react";
+import { useRouter } from 'next/navigation';
 import { BrainCircuit, CaseUpper, Palette, Puzzle, Shapes, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import MathGatesChallenge from "@/components/challenges/math-gates";
-import LetterRiverChallenge from "@/components/challenges/letter-river";
-import ShapeForestChallenge from "@/components/challenges/shape-forest";
-import ColorCanyonChallenge from "@/components/challenges/color-canyon";
 import { type Difficulty } from "@/lib/types";
 import { XP_PER_CORRECT_ANSWER } from "@/lib/xp";
 
@@ -26,75 +22,76 @@ type ObstacleCourseProps = {
 const EMA_ALPHA = 0.2; // Smoothing factor for performance updates
 const TREASURE_CHANCE = 0.25; // 25% chance to get a treasure
 
+const challenges = [
+  {
+    id: "math-gates",
+    title: "Magical Math Gates",
+    description: "Solve number puzzles to unlock the gates and continue your journey.",
+    icon: Puzzle,
+    badge: "New",
+    color: "bg-blue-100 dark:bg-blue-900/30",
+    badgeColor: "bg-blue-500",
+  },
+  {
+    id: "letter-river",
+    title: "Letter Recognition River",
+    description: "Hop across the stones by identifying the correct letters.",
+    icon: CaseUpper,
+    badge: "Recommended",
+    color: "bg-green-100 dark:bg-green-900/30",
+    badgeColor: "bg-green-500",
+  },
+  {
+    id: "shape-forest",
+    title: "Shape Sorting Forest",
+    description: "Clear the path by matching shapes to their silhouettes.",
+    icon: Shapes,
+    badge: "Popular",
+    color: "bg-yellow-100 dark:bg-yellow-900/30",
+    badgeColor: "bg-yellow-500",
+  },
+  {
+    id: "color-canyon",
+    title: "Color Clearing Canyon",
+    description: "Mix and match colors to paint bridges and cross the canyon.",
+    icon: Palette,
+    badge: "Advanced",
+    color: "bg-purple-100 dark:bg-purple-900/30",
+    badgeColor: "bg-purple-500",
+  },
+  {
+    id: "logic-leap",
+    title: "Logic Lava Leap",
+    description: "Use your problem-solving skills to find a safe path across the lava.",
+    icon: BrainCircuit,
+    badge: "Expert",
+    color: "bg-red-100 dark:bg-red-900/30",
+    badgeColor: "bg-red-500",
+  },
+];
+
+
 export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, setXp, setTreasures }: ObstacleCourseProps) {
-  const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handlePerformanceUpdate = useCallback((isCorrect: boolean) => {
-    setPerformance(prev => (prev * (1 - EMA_ALPHA)) + (isCorrect ? 1 : 0) * EMA_ALPHA);
-    if (!isCorrect) {
-      setHp(prevHp => Math.max(0, prevHp - 10));
-    } else {
-      setXp(prevXp => prevXp + XP_PER_CORRECT_ANSWER);
-      if (Math.random() < TREASURE_CHANCE) {
-        setTreasures(prevTreasures => prevTreasures + 1);
-      }
+  const handleStartChallenge = (challengeId: string) => {
+    if (challengeId === 'logic-leap') {
+      // Potentially show a "coming soon" toast
+      return;
     }
-  }, [setPerformance, setHp, setXp, setTreasures]);
+    
+    // Store performance update logic in session storage to be picked up by the challenge page
+    // This is a way to pass function-like behavior to a new page without complex state management libraries
+    const performanceUpdater = {
+      alpha: EMA_ALPHA,
+      treasureChance: TREASURE_CHANCE,
+      xpPerCorrect: XP_PER_CORRECT_ANSWER,
+    };
+    sessionStorage.setItem('performanceUpdater', JSON.stringify(performanceUpdater));
+    sessionStorage.setItem('difficulty', difficulty);
 
-  const challenges = useMemo(() => [
-    {
-      id: "math-gates",
-      title: "Magical Math Gates",
-      description: "Solve number puzzles to unlock the gates and continue your journey.",
-      icon: Puzzle,
-      badge: "New",
-      color: "bg-blue-100 dark:bg-blue-900/30",
-      badgeColor: "bg-blue-500",
-      component: <MathGatesChallenge difficulty={difficulty} onPerformanceUpdate={handlePerformanceUpdate} />,
-    },
-    {
-      id: "letter-river",
-      title: "Letter Recognition River",
-      description: "Hop across the stones by identifying the correct letters.",
-      icon: CaseUpper,
-      badge: "Recommended",
-      color: "bg-green-100 dark:bg-green-900/30",
-      badgeColor: "bg-green-500",
-      component: <LetterRiverChallenge difficulty={difficulty} onPerformanceUpdate={handlePerformanceUpdate} />,
-    },
-    {
-      id: "shape-forest",
-      title: "Shape Sorting Forest",
-      description: "Clear the path by matching shapes to their silhouettes.",
-      icon: Shapes,
-      badge: "Popular",
-      color: "bg-yellow-100 dark:bg-yellow-900/30",
-      badgeColor: "bg-yellow-500",
-      component: <ShapeForestChallenge difficulty={difficulty} onPerformanceUpdate={handlePerformanceUpdate} />,
-    },
-    {
-      id: "color-canyon",
-      title: "Color Clearing Canyon",
-      description: "Mix and match colors to paint bridges and cross the canyon.",
-      icon: Palette,
-      badge: "Advanced",
-      color: "bg-purple-100 dark:bg-purple-900/30",
-      badgeColor: "bg-purple-500",
-      component: <ColorCanyonChallenge difficulty={difficulty} onPerformanceUpdate={handlePerformanceUpdate} />,
-    },
-    {
-      id: "logic-leap",
-      title: "Logic Lava Leap",
-      description: "Use your problem-solving skills to find a safe path across the lava.",
-      icon: BrainCircuit,
-      badge: "Expert",
-      color: "bg-red-100 dark:bg-red-900/30",
-      badgeColor: "bg-red-500",
-      component: <p>Logic Lava Leap coming soon!</p>,
-    },
-  ], [difficulty, handlePerformanceUpdate]);
-
-  const currentChallenge = challenges.find(c => c.id === activeChallenge);
+    router.push(`/challenge/${challengeId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -115,24 +112,16 @@ export default function ObstacleCourse({ difficulty, setPerformance, hp, setHp, 
             <CardFooter className="mt-auto">
               <Button
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                onClick={() => setActiveChallenge(challenge.id)}
-                disabled={hp <= 0}
+                onClick={() => handleStartChallenge(challenge.id)}
+                disabled={hp <= 0 || challenge.id === 'logic-leap'}
               >
-                {hp <= 0 ? "Not enough HP" : "Start Challenge"}
-                {hp > 0 && <ArrowRight className="ml-2 w-4 h-4" />}
+                {hp <= 0 ? "Not enough HP" : challenge.id === 'logic-leap' ? "Coming Soon" : "Start Challenge"}
+                {hp > 0 && challenge.id !== 'logic-leap' && <ArrowRight className="ml-2 w-4 h-4" />}
               </Button>
             </CardFooter>
           </Card>
         ))}
       </div>
-      <Dialog open={!!activeChallenge} onOpenChange={(isOpen) => !isOpen && setActiveChallenge(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{currentChallenge?.title}</DialogTitle>
-          </DialogHeader>
-          {currentChallenge?.component}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

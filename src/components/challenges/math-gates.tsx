@@ -74,6 +74,7 @@ export default function MathGatesChallenge({ difficulty, onPerformanceUpdate }: 
   
   const handleCheckAnswer = (e: React.FormEvent) => {
     e.preventDefault();
+    if (feedback) return;
 
     const isCorrect = parseInt(userAnswer) === problem.answer;
     onPerformanceUpdate(isCorrect);
@@ -105,7 +106,7 @@ export default function MathGatesChallenge({ difficulty, onPerformanceUpdate }: 
   };
 
   return (
-    <Card className="border-0 shadow-none">
+    <Card className="border-0 shadow-none w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2 font-headline text-2xl">
             <BrainCircuit className="text-primary"/>

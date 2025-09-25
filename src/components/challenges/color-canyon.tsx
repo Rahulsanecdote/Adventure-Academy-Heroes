@@ -83,7 +83,7 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
         title: "Correct!",
         description: `You identified the color ${problem.targetColor.name}!`,
       });
-      setTimeout(() => nextProblem(), 1000);
+      setTimeout(nextProblem, 1000);
     } else {
       setFeedback('incorrect');
       setStreak(0);
@@ -97,7 +97,7 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
   }, [feedback, problem.targetColor.name, onPerformanceUpdate, toast, nextProblem]);
 
   return (
-    <Card className="border-0 shadow-none">
+    <Card className="border-0 shadow-none w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2 font-headline text-2xl">
             <Palette className="text-primary"/>
