@@ -7,6 +7,7 @@ import { CheckCircle, XCircle, Palette, RotateCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { type Difficulty } from '@/lib/types';
+import { awardBadge } from '@/lib/badges';
 
 const colors = [
     { name: 'Red', hex: '#ef4444' },
@@ -78,11 +79,15 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
 
     if (isCorrect) {
       setFeedback('correct');
-      setStreak(s => s + 1);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
       toast({
         title: "Correct!",
         description: `You identified the color ${problem.targetColor.name}!`,
       });
+      if (newStreak === 5) {
+        awardBadge("First Steps", toast);
+      }
       setTimeout(nextProblem, 1000);
     } else {
       setFeedback('incorrect');
@@ -94,7 +99,7 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
       });
       setTimeout(() => setFeedback(null), 1500);
     }
-  }, [feedback, problem.targetColor.name, onPerformanceUpdate, toast, nextProblem]);
+  }, [feedback, problem.targetColor.name, onPerformanceUpdate, toast, nextProblem, streak]);
 
   return (
     <Card className="border-0 shadow-none w-full max-w-md mx-auto">

@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "../ui/button";
 import { getLevelProgress, xpForLevel } from "@/lib/xp";
+import { cn } from "@/lib/utils";
 
-const badges = [
+export const badges = [
   { icon: Star, color: "text-yellow-400", label: "First Steps" },
   { icon: Award, color: "text-blue-400", label: "Math Whiz" },
   { icon: Trophy, color: "text-green-400", label: "Reading Champ" },
@@ -22,9 +23,10 @@ type ProgressTrackerProps = {
   level: number;
   treasures: number;
   setTreasures: React.Dispatch<React.SetStateAction<number>>;
+  earnedBadges: string[];
 }
 
-export default function ProgressTracker({ hp, setHp, xp, level, treasures, setTreasures }: ProgressTrackerProps) {
+export default function ProgressTracker({ hp, setHp, xp, level, treasures, setTreasures, earnedBadges }: ProgressTrackerProps) {
   const handleHeal = () => {
     if (treasures >= HEAL_COST && hp < 100) {
       setHp(currentHp => Math.min(100, currentHp + HEAL_AMOUNT));
@@ -76,14 +78,17 @@ export default function ProgressTracker({ hp, setHp, xp, level, treasures, setTr
         <div className="space-y-3">
           <h4 className="font-semibold text-foreground">Hero Badges</h4>
           <div className="grid grid-cols-4 gap-4">
-            {badges.map((badge) => (
-              <div key={badge.label} className="flex flex-col items-center text-center gap-1" title={badge.label}>
-                <div className="p-3 bg-muted rounded-full">
-                  <badge.icon className={`w-6 h-6 ${badge.color}`} />
+            {badges.map((badge) => {
+              const isEarned = earnedBadges.includes(badge.label);
+              return (
+                <div key={badge.label} className={cn("flex flex-col items-center text-center gap-1 transition-all", isEarned ? "opacity-100" : "opacity-40 grayscale")} title={badge.label}>
+                  <div className={cn("p-3 bg-muted rounded-full relative transition-all", isEarned && "bg-accent/20")}>
+                    <badge.icon className={cn("w-6 h-6", badge.color, isEarned && "drop-shadow-[0_0_4px_currentColor]")} />
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{badge.label}</p>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{badge.label}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
         <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">

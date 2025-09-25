@@ -7,6 +7,7 @@ import { CheckCircle, XCircle, Shapes, RotateCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { type Difficulty } from '@/lib/types';
+import { awardBadge } from '@/lib/badges';
 
 type ShapeType = 'circle' | 'square' | 'triangle';
 
@@ -91,11 +92,15 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
 
     if (isCorrect) {
       setFeedback('correct');
-      setStreak(s => s + 1);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
       toast({
         title: "Correct!",
         description: "You found the right shape!",
       });
+      if (newStreak === 5) {
+        awardBadge("Creative Genius", toast);
+      }
       setTimeout(nextProblem, 1000);
     } else {
       setFeedback('incorrect');
@@ -107,7 +112,7 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
       });
       setTimeout(() => setFeedback(null), 1500);
     }
-  }, [feedback, problem.targetShape, onPerformanceUpdate, toast, nextProblem]);
+  }, [feedback, problem.targetShape, onPerformanceUpdate, toast, nextProblem, streak]);
 
   return (
     <Card className="border-0 shadow-none w-full max-w-md mx-auto">

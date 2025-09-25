@@ -8,6 +8,7 @@ import { CheckCircle, XCircle, CaseUpper, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { type Difficulty } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { awardBadge } from '@/lib/badges';
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -45,11 +46,15 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
     
     if (isCorrect) {
       setFeedback('correct');
-      setStreak(s => s + 1);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
       toast({
         title: "Correct!",
         description: `You identified the letter ${problem.letter}!`,
       });
+      if (newStreak === 5) {
+        awardBadge("Reading Champ", toast);
+      }
       setTimeout(nextProblem, 1000);
     } else {
       setFeedback('incorrect');
@@ -64,7 +69,7 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
         setPressedKey(null);
        }, 1500);
     }
-  }, [problem.letter, feedback, onPerformanceUpdate, toast, nextProblem]);
+  }, [problem.letter, feedback, onPerformanceUpdate, toast, nextProblem, streak]);
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {

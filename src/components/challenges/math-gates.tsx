@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle, XCircle, ArrowRight, BrainCircuit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { type Difficulty } from '@/lib/types';
+import { awardBadge } from '@/lib/badges';
 
 type Operation = '+' | '-';
 
@@ -81,11 +82,15 @@ export default function MathGatesChallenge({ difficulty, onPerformanceUpdate }: 
 
     if (isCorrect) {
       setFeedback('correct');
-      setStreak(s => s + 1);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
       toast({
         title: "Correct!",
         description: "Great job! Here's another one.",
       });
+       if (newStreak === 5) {
+        awardBadge("Math Whiz", toast);
+      }
       setTimeout(() => {
         setProblem(generateProblem(difficulty));
         setUserAnswer('');

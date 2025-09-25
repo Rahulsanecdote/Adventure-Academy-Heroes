@@ -21,10 +21,19 @@ export default function Home() {
   const [xp, setXp] = useState(1150);
   const [level, setLevel] = useState(1);
   const [treasures, setTreasures] = useState(42);
+  const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
 
   useEffect(() => {
     setLevel(calculateLevel(xp));
   }, [xp]);
+
+  useEffect(() => {
+    // Load earned badges from localStorage on initial render
+    const savedBadges = localStorage.getItem('earnedBadges');
+    if (savedBadges) {
+      setEarnedBadges(JSON.parse(savedBadges));
+    }
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -42,7 +51,8 @@ export default function Home() {
               xp={xp} 
               level={level} 
               treasures={treasures}
-              setTreasures={setTreasures} 
+              setTreasures={setTreasures}
+              earnedBadges={earnedBadges}
             />
             <VoiceActivity />
              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">

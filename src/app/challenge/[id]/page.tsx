@@ -45,6 +45,19 @@ export default function ChallengePage() {
     if (storedUpdater) {
       setPerformanceUpdater(JSON.parse(storedUpdater));
     }
+
+    const handleBadgeUnlock = () => {
+        // When a badge is unlocked, we might want to refresh the main page's state
+        // when the user navigates back. A simple way is to use a session flag.
+        sessionStorage.setItem('newBadgeEarned', 'true');
+    }
+
+    window.addEventListener('badge-unlocked', handleBadgeUnlock);
+
+    return () => {
+        window.removeEventListener('badge-unlocked', handleBadgeUnlock);
+    };
+
   }, []);
 
   const handlePerformanceUpdate = useCallback((isCorrect: boolean) => {
