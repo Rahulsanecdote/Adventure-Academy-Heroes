@@ -74,11 +74,9 @@ const storyWeaverFlow = ai.defineFlow(
       throw new Error('Failed to generate story.');
     }
 
-    const imagePrompt = `A vibrant and whimsical children's book illustration of the following scene: ${storyOutput.story}`;
-
     const { media } = await ai.generate({
       model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: imagePrompt,
+      prompt: `A vibrant and whimsical children's book illustration of the following scene: ${storyOutput.story}`,
     });
     
     const imageUrl = media?.url;
