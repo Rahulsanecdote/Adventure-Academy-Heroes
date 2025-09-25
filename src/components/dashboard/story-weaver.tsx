@@ -15,7 +15,6 @@ import Image from "next/image";
 const initialState = {
   message: "",
   story: null,
-  image: null,
   errors: null,
 };
 
@@ -85,11 +84,6 @@ export default function StoryWeaver({ heroName, level }: StoryWeaverProps) {
         {state.story && (
           <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-3">
              <h4 className="font-semibold text-center">A Hero's Tale</h4>
-             {state.image && (
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                    <Image src={state.image} alt="Story illustration" fill className="object-cover" />
-                </div>
-             )}
              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{state.story}</p>
           </div>
         )}

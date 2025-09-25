@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A story weaving AI agent that creates personalized adventure stories with images.
+ * @fileOverview A story weaving AI agent that creates personalized adventure stories.
  *
  * - storyWeaver - A function that handles the story generation process.
  * - StoryWeaverInput - The input type for the storyWeaver function.
@@ -23,9 +23,6 @@ const StoryWeaverOutputSchema = z.object({
   story: z
     .string()
     .describe('A short, engaging adventure story for a child.'),
-  image: z
-    .string()
-    .describe('A data URI of a generated image that illustrates the story.'),
 });
 export type StoryWeaverOutput = z.infer<typeof StoryWeaverOutputSchema>;
 
@@ -38,11 +35,7 @@ export async function storyWeaver(
 const storyPrompt = ai.definePrompt({
   name: 'storyWeaverStoryPrompt',
   input: {schema: StoryWeaverInputSchema},
-  output: {schema: z.object({
-    story: z
-      .string()
-      .describe('A short, engaging adventure story for a child (3-4 paragraphs).'),
-  })},
+  output: {schema: StoryWeaverOutputSchema},
   prompt: `You are a master storyteller for children, known as the Story Weaver.
 Create a short (3-4 paragraphs), exciting, and age-appropriate adventure story.
 
@@ -69,24 +62,13 @@ const storyWeaverFlow = ai.defineFlow(
     outputSchema: StoryWeaverOutputSchema,
   },
   async input => {
-    const { output: storyOutput } = await storyPrompt(input);
-    if (!storyOutput?.story) {
+    const { output } = await storyPrompt(input);
+    if (!output?.story) {
       throw new Error('Failed to generate story.');
     }
 
-    const { media } = await ai.generate({
-      model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: `A vibrant and whimsical children's book illustration of the following scene: ${storyOutput.story}`,
-    });
-    
-    const imageUrl = media?.url;
-    if (!imageUrl) {
-        throw new Error('Failed to generate image.');
-    }
-
     return {
-      story: storyOutput.story,
-      image: imageUrl,
+      story: output.story,
     };
   }
 );

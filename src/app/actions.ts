@@ -101,7 +101,6 @@ export async function getStory(prevState: any, formData: FormData) {
     return {
       message: "Success",
       story: result.story,
-      image: result.image,
     };
   } catch (error) {
     console.error(error);
