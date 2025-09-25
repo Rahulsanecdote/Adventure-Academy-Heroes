@@ -83,7 +83,7 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
     setProblem(generateProblem(difficulty));
   }, [difficulty]);
   
-  const handleSelectAnswer = (selected: {shape: ShapeType; color: string}) => {
+  const handleSelectAnswer = useCallback((selected: {shape: ShapeType; color: string}) => {
     if (feedback) return;
 
     const isCorrect = selected.shape === problem.targetShape;
@@ -107,7 +107,7 @@ export default function ShapeForestChallenge({ difficulty, onPerformanceUpdate }
       });
       setTimeout(() => setFeedback(null), 1500);
     }
-  };
+  }, [feedback, problem.targetShape, onPerformanceUpdate, toast, nextProblem]);
 
   return (
     <Card className="border-0 shadow-none">

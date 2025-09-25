@@ -70,7 +70,7 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
     setProblem(generateProblem(difficulty));
   }, [difficulty]);
   
-  const handleSelectAnswer = (selectedColor: typeof colors[0]) => {
+  const handleSelectAnswer = useCallback((selectedColor: typeof colors[0]) => {
     if (feedback) return;
 
     const isCorrect = selectedColor.name === problem.targetColor.name;
@@ -94,7 +94,7 @@ export default function ColorCanyonChallenge({ difficulty, onPerformanceUpdate }
       });
       setTimeout(() => setFeedback(null), 1500);
     }
-  };
+  }, [feedback, problem.targetColor.name, onPerformanceUpdate, toast, nextProblem]);
 
   return (
     <Card className="border-0 shadow-none">

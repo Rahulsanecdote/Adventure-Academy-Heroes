@@ -64,7 +64,7 @@ export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }
         setPressedKey(null);
        }, 1500);
     }
-  }, [problem, feedback, nextProblem, toast, onPerformanceUpdate]);
+  }, [problem.letter, feedback, onPerformanceUpdate, toast, nextProblem]);
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
