@@ -22,7 +22,7 @@ type ChallengeProps = {
 };
 
 export default function LetterRiverChallenge({ difficulty, onPerformanceUpdate }: ChallengeProps) {
-  const [problem, setProblem] = useState(generateProblem(difficulty));
+  const [problem, setProblem] = useState(() => generateProblem(difficulty));
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
