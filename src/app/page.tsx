@@ -7,8 +7,11 @@ import ProgressTracker from "@/components/dashboard/progress-tracker";
 import ObstacleCourse from "@/components/dashboard/obstacle-course";
 import VoiceActivity from "@/components/dashboard/voice-activity";
 import AdaptiveDifficultyAdjuster from "@/components/dashboard/adaptive-difficulty-adjuster";
+import DailyQuests from "@/components/dashboard/daily-quests";
+import SubjectWorlds from "@/components/dashboard/subject-worlds";
 import { type Difficulty } from '@/lib/types';
 import { calculateLevel } from '@/lib/xp';
+import { updateQuestProgress, saveQuests, getActiveQuests } from '@/lib/quest-system';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookMarked, ArrowRight } from 'lucide-react';
@@ -35,6 +38,47 @@ export default function Home() {
     }
   }, []);
 
+  // Quest progress tracking functions
+  const handleObstacleCourseComplete = () => {
+    const quests = getActiveQuests();
+    const updatedQuests = updateQuestProgress(quests, 'complete_obstacles');
+    saveQuests(updatedQuests);
+  };
+
+  const handleXpGain = (gainedXp: number) => {
+    setXp(prev => prev + gainedXp);
+    const quests = getActiveQuests();
+    const updatedQuests = updateQuestProgress(quests, 'earn_xp', gainedXp);
+    saveQuests(updatedQuests);
+  };
+
+  const handleVoiceActivityComplete = () => {
+    const quests = getActiveQuests();
+    const updatedQuests = updateQuestProgress(quests, 'voice_activity');
+    saveQuests(updatedQuests);
+  };
+
+  const handleStoryLineAdded = () => {
+    const quests = getActiveQuests();
+    const updatedQuests = updateQuestProgress(quests, 'story_lines');
+    saveQuests(updatedQuests);
+  };
+
+  const handleQuestReward = (rewardXp: number, rewardTreasures: number, badge?: string) => {
+    setXp(prev => prev + rewardXp);
+    setTreasures(prev => prev + rewardTreasures);
+    if (badge && !earnedBadges.includes(badge)) {
+      const newBadges = [...earnedBadges, badge];
+      setEarnedBadges(newBadges);
+      localStorage.setItem('earnedBadges', JSON.stringify(newBadges));
+    }
+  };
+
+  const handleActivityReward = (rewardXp: number, rewardTreasures: number) => {
+    setXp(prev => prev + rewardXp);
+    setTreasures(prev => prev + rewardTreasures);
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -54,6 +98,7 @@ export default function Home() {
               setTreasures={setTreasures}
               earnedBadges={earnedBadges}
             />
+            <DailyQuests onRewardClaimed={handleQuestReward} />
             <VoiceActivity />
              <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
@@ -79,7 +124,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-8">
             <ObstacleCourse 
               difficulty={difficulty} 
               setPerformance={setPerformance} 
@@ -88,6 +133,7 @@ export default function Home() {
               setXp={setXp}
               setTreasures={setTreasures}
             />
+            <SubjectWorlds onActivityComplete={handleActivityReward} />
           </div>
         </div>
       </main>
