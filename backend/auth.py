@@ -29,11 +29,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against one provided by user."""
-    # Truncate password to 72 bytes to match hashing behavior
+    # Pre-hash with SHA-256 to match hashing behavior
     password_bytes = plain_password.encode('utf-8')
-    if len(password_bytes) > 72:
-        password_bytes = password_bytes[:72]
-    return pwd_context.verify(password_bytes.decode('utf-8', errors='ignore'), hashed_password)
+    sha256_hash = hashlib.sha256(password_bytes).digest()
+    b64_hash = base64.b64encode(sha256_hash).decode('ascii')
+    return pwd_context.verify(b64_hash, hashed_password)
 
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     """Create JWT access token."""
