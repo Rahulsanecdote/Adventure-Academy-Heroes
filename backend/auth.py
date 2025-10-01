@@ -7,11 +7,10 @@ import os
 import hashlib
 import base64
 
-# Use a more compatible configuration for bcrypt
+# Use pbkdf2_sha256 instead of bcrypt to avoid compatibility issues
 pwd_context = CryptContext(
-    schemes=["bcrypt"], 
-    deprecated="auto",
-    bcrypt__rounds=12
+    schemes=["pbkdf2_sha256"], 
+    deprecated="auto"
 )
 security = HTTPBearer()
 
