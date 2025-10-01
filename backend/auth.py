@@ -14,7 +14,11 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 1 week
 
 def hash_password(password: str) -> str:
     """Hash a password for storing."""
-    return pwd_context.hash(password)
+    # Truncate password to 72 bytes to avoid bcrypt limitation
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    return pwd_context.hash(password_bytes.decode('utf-8', errors='ignore'))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against one provided by user."""
