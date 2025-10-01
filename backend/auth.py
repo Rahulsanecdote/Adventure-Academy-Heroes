@@ -20,11 +20,7 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 1 week
 
 def hash_password(password: str) -> str:
     """Hash a password for storing."""
-    # Pre-hash with SHA-256 to avoid bcrypt 72-byte limitation
-    password_bytes = password.encode('utf-8')
-    sha256_hash = hashlib.sha256(password_bytes).digest()
-    b64_hash = base64.b64encode(sha256_hash).decode('ascii')
-    return pwd_context.hash(b64_hash)
+    return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against one provided by user."""
