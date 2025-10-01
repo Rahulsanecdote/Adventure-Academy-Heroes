@@ -4,8 +4,15 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
+import hashlib
+import base64
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use a more compatible configuration for bcrypt
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__rounds=12
+)
 security = HTTPBearer()
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key")
