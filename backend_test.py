@@ -86,7 +86,7 @@ class AdventureAcademyTester:
         parent_data = {
             "name": "Emma Johnson",
             "email": "emma.johnson@example.com",
-            "password": "SecurePass123!"
+            "password": "SecurePass123"
         }
         
         self.log("Testing parent registration...")
