@@ -24,11 +24,7 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against one provided by user."""
-    # Pre-hash with SHA-256 to match hashing behavior
-    password_bytes = plain_password.encode('utf-8')
-    sha256_hash = hashlib.sha256(password_bytes).digest()
-    b64_hash = base64.b64encode(sha256_hash).decode('ascii')
-    return pwd_context.verify(b64_hash, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)
 
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     """Create JWT access token."""
