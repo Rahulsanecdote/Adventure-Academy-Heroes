@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '@/lib/apiClient';
 
 const AuthContext = createContext();
 
@@ -10,9 +10,6 @@ export const useAuth = () => {
   }
   return context;
 };
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -28,6 +25,7 @@ export const AuthProvider = ({ children }) => {
 
     if (storedToken) {
       setToken(storedToken);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
       if (storedUser) setUser(JSON.parse(storedUser));
       if (storedChild) setChild(JSON.parse(storedChild));
     }
@@ -36,18 +34,21 @@ export const AuthProvider = ({ children }) => {
 
   const registerParent = async (name, email, password) => {
     try {
-      const response = await axios.post(`${API}/auth/parent/register`, {
+      const response = await apiClient.post('/auth/parent/register', {
         name,
         email,
         password
       });
-      
+
       const { access_token, user: userData } = response.data;
       setToken(access_token);
       setUser(userData);
+      setChild(null);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${access_token}`;
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
-      
+      localStorage.removeItem('child');
+
       return { success: true };
     } catch (error) {
       return { 
@@ -59,17 +60,20 @@ export const AuthProvider = ({ children }) => {
 
   const loginParent = async (email, password) => {
     try {
-      const response = await axios.post(`${API}/auth/parent/login`, {
+      const response = await apiClient.post('/auth/parent/login', {
         email,
         password
       });
-      
+
       const { access_token, user: userData } = response.data;
       setToken(access_token);
       setUser(userData);
+      setChild(null);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${access_token}`;
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
-      
+      localStorage.removeItem('child');
+
       return { success: true };
     } catch (error) {
       return { 
@@ -81,17 +85,20 @@ export const AuthProvider = ({ children }) => {
 
   const loginChild = async (childId, picturePasswordId) => {
     try {
-      const response = await axios.post(`${API}/auth/child/login`, {
+      const response = await apiClient.post('/auth/child/login', {
         child_id: childId,
         picture_password_id: picturePasswordId
       });
-      
+
       const { access_token, child: childData } = response.data;
       setToken(access_token);
       setChild(childData);
+      setUser(null);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${access_token}`;
       localStorage.setItem('token', access_token);
       localStorage.setItem('child', JSON.stringify(childData));
-      
+      localStorage.removeItem('user');
+
       return { success: true };
     } catch (error) {
       return { 
@@ -105,6 +112,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setChild(null);
     setToken(null);
+    delete apiClient.defaults.headers.common.Authorization;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('child');
