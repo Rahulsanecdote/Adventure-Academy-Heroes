@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
 
@@ -165,5 +165,7 @@ class DashboardData(BaseModel):
     recent_sessions: List[LearningSession]
     skill_progress: List[SkillProgress]
     achievements: List[Achievement]
-    weekly_stats: Dict
+    weekly_stats: Dict[str, Any]
     recommendations: List[str]
+    engagement_insights: List[str] = []
+    focus_areas: List[Dict[str, Any]] = []

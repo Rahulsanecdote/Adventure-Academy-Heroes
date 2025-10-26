@@ -505,27 +505,121 @@ async def get_parent_dashboard(child_id: str, current_user: dict = Depends(get_c
     week_ago = datetime.utcnow() - timedelta(days=7)
     weekly_sessions = [s for s in sessions if s.get("started_at") and s["started_at"] >= week_ago]
     
+    total_weekly_duration = sum(s.get("duration_seconds", 0) for s in weekly_sessions)
+    total_weekly_correct = sum(s.get("correct_answers", 0) for s in weekly_sessions)
+    total_weekly_questions = sum(s.get("total_questions", 0) for s in weekly_sessions)
+
+    def calculate_learning_streak(all_sessions: list) -> int:
+        session_dates = sorted({s.get("started_at").date() for s in all_sessions if s.get("started_at")}, reverse=True)
+        if not session_dates:
+            return 0
+
+        today = datetime.utcnow().date()
+        streak = 0
+        expected_day = today
+
+        for session_day in session_dates:
+            if session_day > expected_day:
+                continue
+
+            if session_day == expected_day:
+                streak += 1
+                expected_day = expected_day - timedelta(days=1)
+                continue
+
+            if session_day == expected_day - timedelta(days=1):
+                streak += 1
+                expected_day = session_day - timedelta(days=1)
+                continue
+
+            break
+
+        return streak
+
+    previous_week_start = week_ago - timedelta(days=7)
+    previous_week_sessions = [
+        s for s in sessions
+        if s.get("started_at") and previous_week_start <= s["started_at"] < week_ago
+    ]
+
+    weekly_average_score = (
+        sum(s.get("score", 0) for s in weekly_sessions) / len(weekly_sessions)
+        if weekly_sessions else 0
+    )
+    previous_average_score = (
+        sum(s.get("score", 0) for s in previous_week_sessions) / len(previous_week_sessions)
+        if previous_week_sessions else 0
+    )
+
+    goal_minutes_target = 120
+    total_time_minutes = total_weekly_duration // 60
+
     weekly_stats = {
         "sessions_count": len(weekly_sessions),
-        "total_time_minutes": sum(s.get("duration_seconds", 0) for s in weekly_sessions) // 60,
-        "average_score": sum(s.get("score", 0) for s in weekly_sessions) // len(weekly_sessions) if weekly_sessions else 0,
-        "skills_practiced": len(set(s.get("activity_type") for s in weekly_sessions))
+        "total_time_minutes": total_time_minutes,
+        "average_score": int(weekly_average_score),
+        "skills_practiced": len(set(s.get("activity_type") for s in weekly_sessions)),
+        "accuracy_rate": round((total_weekly_correct / total_weekly_questions) * 100) if total_weekly_questions else 0,
+        "average_duration_minutes": round((total_weekly_duration / len(weekly_sessions)) / 60, 1) if weekly_sessions else 0,
+        "goal_completion_percentage": min(100, round((total_time_minutes / goal_minutes_target) * 100)) if goal_minutes_target else 0,
+        "minutes_goal": goal_minutes_target,
+        "streak_days": calculate_learning_streak(sessions),
+        "active_days": len({s.get("started_at").date() for s in weekly_sessions if s.get("started_at")}),
+        "score_trend": round(weekly_average_score - previous_average_score, 1)
     }
-    
+
     # Generate AI-powered recommendations
     recommendations = [
         f"🎯 {child_doc['name']} is doing great with {skill_objects[0].skill_type if skill_objects else 'learning'}!",
         f"⭐ Try practicing during morning hours for better focus",
         f"📚 Explore new activity types to keep learning fun"
     ]
-    
+
+    engagement_insights: List[str] = []
+
+    if weekly_stats["streak_days"] >= 5:
+        engagement_insights.append("🔥 Incredible streak! Keep the daily adventures going.")
+    elif weekly_stats["streak_days"] == 0:
+        engagement_insights.append("Let's kickstart a new learning streak this week!")
+
+    if weekly_stats["goal_completion_percentage"] >= 100:
+        engagement_insights.append("✅ Weekly learning minutes goal met—time for a celebration!")
+    elif weekly_stats["goal_completion_percentage"] < 50:
+        engagement_insights.append("⏱️ A few more short sessions will help reach the weekly minutes goal.")
+
+    if weekly_stats["accuracy_rate"] >= 85:
+        engagement_insights.append("🎯 Accuracy is soaring—concepts are sticking nicely.")
+    elif weekly_stats["accuracy_rate"] < 60 and weekly_stats["sessions_count"]:
+        engagement_insights.append("🧠 Consider a review session to reinforce tricky topics.")
+
+    if weekly_stats["score_trend"] > 0:
+        engagement_insights.append("📈 Scores are rising compared to last week—great progress!")
+    elif weekly_stats["score_trend"] < 0:
+        engagement_insights.append("🔁 Slight dip in scores—try revisiting recently learned skills.")
+
+    if weekly_stats["skills_practiced"] >= 3:
+        engagement_insights.append("🌈 A wide mix of skills practiced—wonderful variety!")
+
+    focus_areas = []
+    if skill_objects:
+        low_mastery_skills = sorted(skill_objects, key=lambda s: s.mastery_percentage)[:2]
+        for skill in low_mastery_skills:
+            focus_areas.append({
+                "skill": skill.skill_type,
+                "mastery_percentage": skill.mastery_percentage,
+                "last_practiced": skill.last_practiced,
+                "practice_prompt": f"Spend a quick session on {skill.skill_type.replace('_', ' ')} to build confidence."
+            })
+
     return DashboardData(
         child_profile=child_profile,
         recent_sessions=recent_session_objects,
         skill_progress=skill_objects,
         achievements=achievement_objects,
         weekly_stats=weekly_stats,
-        recommendations=recommendations
+        recommendations=recommendations,
+        engagement_insights=engagement_insights,
+        focus_areas=focus_areas
     )
 
 # ============ Health Check ============
