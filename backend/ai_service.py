@@ -83,12 +83,21 @@ Return ONLY the JSON array, no other text."""
     
     def _generate_fallback_activities(self, activity_type: str, difficulty: int, age_group: str, count: int) -> List[Dict]:
         """Generate template-based activities as fallback."""
-        activities = []
-        
+        activities: List[Dict] = []
+
         if activity_type == "counting":
-            contexts = ["apples", "stars", "balloons", "teddy bears", "cookies"]
-            for i in range(count):
-                num = min(difficulty * 2, 10)
+            contexts = [
+                "apples",
+                "stars",
+                "balloons",
+                "teddy bears",
+                "cookies",
+                "building blocks",
+                "ladybugs",
+            ]
+            for _ in range(count):
+                max_count = min(3 + difficulty * 2, 15)
+                num = random.randint(1, max_count)
                 context = random.choice(contexts)
                 activities.append({
                     "activity_type": "counting",
@@ -99,37 +108,128 @@ Return ONLY the JSON array, no other text."""
                     "age_group": age_group,
                     "hints": [
                         f"Try pointing to each {context} as you count!",
-                        "Count slowly and carefully!"
-                    ]
+                        "Count slowly and carefully!",
+                    ],
                 })
-        
+
         elif activity_type == "number_recognition":
-            for i in range(count):
-                num = random.randint(1, min(difficulty * 2, 10))
+            for _ in range(count):
+                num = random.randint(0, min(5 + difficulty * 2, 20))
+                options = {num}
+                while len(options) < 4:
+                    candidate = max(0, num + random.choice([-2, -1, 1, 2, 3]))
+                    options.add(candidate)
                 activities.append({
                     "activity_type": "number_recognition",
-                    "question_text": f"Which number is this?",
-                    "question_data": {"number": num, "options": [num, num+1, num-1, num+2]},
+                    "question_text": "Which number is this?",
+                    "question_data": {"number": num, "options": sorted(options)},
                     "correct_answer": str(num),
                     "difficulty_level": difficulty,
                     "age_group": age_group,
-                    "hints": ["Look at the number carefully!", "You can do it!"]
+                    "hints": [
+                        "Look closely at the shape of the number!",
+                        "Say the number out loud to help remember it!",
+                    ],
                 })
-        
+
         elif activity_type == "shapes":
-            shapes = ["circle", "square", "triangle", "rectangle", "star"][:difficulty]
-            for i in range(count):
+            base_shapes = [
+                "circle",
+                "square",
+                "triangle",
+                "rectangle",
+                "star",
+                "oval",
+                "diamond",
+            ]
+            shapes = base_shapes[: max(3, min(len(base_shapes), 2 + difficulty))]
+            for _ in range(count):
                 shape = random.choice(shapes)
+                choice_pool = shapes.copy()
+                random.shuffle(choice_pool)
                 activities.append({
                     "activity_type": "shapes",
                     "question_text": f"Find the {shape}!",
-                    "question_data": {"shape": shape, "options": random.sample(shapes, min(4, len(shapes)))},
+                    "question_data": {
+                        "shape": shape,
+                        "options": choice_pool[: min(4, len(choice_pool))],
+                    },
                     "correct_answer": shape,
                     "difficulty_level": difficulty,
                     "age_group": age_group,
-                    "hints": [f"A {shape} looks like...", "Look for the special shape!"]
+                    "hints": [
+                        f"A {shape} looks like something in your room. Can you find it?",
+                        "Trace the sides with your finger to check!",
+                    ],
                 })
-        
+
+        elif activity_type == "simple_addition":
+            for _ in range(count):
+                max_value = min(5 + difficulty * 2, 20)
+                a = random.randint(0, max_value // 2)
+                b = random.randint(0, max_value - a)
+                context = random.choice(["toy cars", "rainbow stickers", "cupcakes", "puzzle pieces"])
+                activities.append({
+                    "activity_type": "simple_addition",
+                    "question_text": f"{a} {context} plus {b} more {context}. How many are there now?",
+                    "question_data": {"addends": [a, b], "context": context},
+                    "correct_answer": str(a + b),
+                    "difficulty_level": difficulty,
+                    "age_group": age_group,
+                    "hints": [
+                        "Count the first group, then keep counting as you add more!",
+                        "Use your fingers or draw dots to help add them up!",
+                    ],
+                })
+
+        elif activity_type == "patterns":
+            pattern_types = [
+                {
+                    "type": "color",
+                    "items": ["red", "blue", "yellow", "green", "purple"],
+                },
+                {
+                    "type": "shape",
+                    "items": ["circle", "triangle", "square", "star"],
+                },
+                {
+                    "type": "animal",
+                    "items": ["cat", "dog", "bird", "fish"],
+                },
+            ]
+            for _ in range(count):
+                pattern = random.choice(pattern_types)
+                sequence_length = min(5 + difficulty, 10)
+                base_sequence = pattern["items"]
+                repeating_sequence = base_sequence[: max(2, min(len(base_sequence), 2 + difficulty // 2))]
+                sequence = []
+                while len(sequence) < sequence_length:
+                    sequence.extend(repeating_sequence)
+                sequence = sequence[:sequence_length]
+                display_sequence = sequence[:-1]
+                correct = sequence[-1]
+                distractors = set(base_sequence) - {correct}
+                if len(distractors) < 3:
+                    distractors = distractors.union({"mystery", "sparkle", "rainbow"})
+                options = [correct] + random.sample(list(distractors), min(3, len(distractors)))
+                random.shuffle(options)
+                activities.append({
+                    "activity_type": "patterns",
+                    "question_text": "What comes next in the pattern?",
+                    "question_data": {
+                        "pattern_type": pattern["type"],
+                        "sequence": display_sequence,
+                        "options": options,
+                    },
+                    "correct_answer": correct,
+                    "difficulty_level": difficulty,
+                    "age_group": age_group,
+                    "hints": [
+                        "Say the pattern out loud and listen for the repeating part!",
+                        "Point to each item and see what repeats again and again!",
+                    ],
+                })
+
         return activities
     
     async def generate_encouragement(self, score: int, total: int, difficulty: int) -> str:
