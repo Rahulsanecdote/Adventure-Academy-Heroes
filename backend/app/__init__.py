@@ -1,0 +1,1 @@
+"""KidQuest Academy Backend Application"""

@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 min-h-screen;
+    font-family: 'Nunito', sans-serif;
+  }
+}
+
+@layer components {
+  /* Game-style buttons */
+  .btn-game {
+    @apply font-display font-bold text-white py-3 px-6 rounded-xl;
+    @apply shadow-game hover:shadow-game-hover active:shadow-game-active;
+    @apply transition-all duration-150 active:translate-y-1;
+    @apply uppercase tracking-wide;
+  }
+  
+  .btn-primary {
+    @apply btn-game bg-roblox-blue hover:bg-roblox-darkblue;
+  }
+  
+  .btn-success {
+    @apply btn-game bg-roblox-green hover:bg-green-600;
+  }
+  
+  .btn-warning {
+    @apply btn-game bg-roblox-yellow hover:bg-yellow-500 text-gray-900;
+  }
+  
+  /* Game cards */
+  .game-card {
+    @apply bg-white rounded-2xl border-4 border-gray-200 shadow-lg p-6;
+    @apply hover:scale-105 hover:shadow-2xl transition-all duration-200;
+    @apply cursor-pointer;
+  }
+  
+  .game-card-premium {
+    @apply game-card border-roblox-yellow bg-gradient-to-br from-yellow-50 to-orange-50;
+    @apply shadow-glow-yellow;
+  }
+  
+  /* Input fields */
+  .input-game {
+    @apply w-full px-4 py-3 border-4 border-gray-300 rounded-xl;
+    @apply focus:border-roblox-blue focus:outline-none;
+    @apply font-semibold text-lg transition-colors;
+  }
+  
+  /* Stat displays */
+  .stat-card {
+    @apply bg-white rounded-xl border-4 shadow-lg p-4;
+    @apply hover:scale-105 transition-transform;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(0, 162, 255, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(0, 162, 255, 0.8); }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out;
+}
+
+/* Game canvas */
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+/* Text shadows for game-like effect */
+.text-game-shadow {
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Roblox-style thick borders */
+.border-game {
+  border-width: 4px;
+}
+
+/* Number counters */
+.counter {
+  @apply font-display font-bold text-4xl;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
