@@ -12,10 +12,13 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
-    allowedHosts: [
-      'play2learn-2.preview.emergentagent.com',
-      'localhost',
-      '.emergentagent.com'
-    ]
-  }
+    // Allow dynamic preview hostnames so the site stays reachable in remote dev environments.
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+      },
+    },
+  },
 })

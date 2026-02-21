@@ -11,17 +11,15 @@ import type {
   ChildStats
 } from '../types';
 
-// API URL: Use env var, fallback to relative /api for preview/deploy, or localhost for dev
+// API URL resolution strategy:
+// 1. explicit env override wins
+// 2. in Vite dev, use relative URLs and rely on dev server proxy (/api -> backend)
+// 3. otherwise use relative URLs (for deployments that route /api to backend)
 const getApiUrl = (): string => {
   const envUrl = import.meta.env.VITE_BACKEND_URL;
   if (envUrl) return envUrl;
-  
-  // In preview/production, use relative path
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return ''; // relative - will use /api prefix directly
-  }
-  
-  return 'http://localhost:8001';
+
+  return '';
 };
 
 const API_URL = getApiUrl();
