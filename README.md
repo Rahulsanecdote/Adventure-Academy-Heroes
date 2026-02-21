@@ -247,7 +247,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
 **Frontend (.env)**
 ```env
-REACT_APP_BACKEND_URL=http://localhost:8001
+VITE_BACKEND_URL=http://localhost:8001
 ```
 
 ### Scripts
@@ -272,6 +272,35 @@ yarn build
 # Preview production build
 yarn preview
 ```
+
+---
+
+
+## ▲ Vercel Deployment (Production)
+
+This repo is configured for **single-domain deployment on Vercel**:
+- Frontend is built from `frontend/` and served as static assets.
+- FastAPI backend is deployed as a serverless function at `/api/index.py`.
+- Frontend API calls should remain relative (`/api/...`) in production.
+
+### Required Vercel Environment Variables
+
+Set these in your Vercel project settings:
+
+```env
+MONGO_URL=<your-mongodb-atlas-connection-string>
+SECRET_KEY=<strong-random-secret>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+```
+
+Optional:
+
+```env
+VITE_BACKEND_URL=
+```
+
+Leave `VITE_BACKEND_URL` empty for same-domain deployments so the app uses `/api` routes.
 
 ---
 
