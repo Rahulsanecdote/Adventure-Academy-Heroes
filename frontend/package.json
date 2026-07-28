@@ -11,7 +11,7 @@
   "dependencies": {
     "@babylonjs/core": "^8.41.2",
     "@babylonjs/loaders": "^8.41.2",
-    "axios": "^1.6.2",
+    "axios": "^1.18.0",
     "clsx": "^2.0.0",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
