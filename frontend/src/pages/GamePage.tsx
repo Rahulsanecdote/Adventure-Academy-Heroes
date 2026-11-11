@@ -149,6 +149,26 @@ export const GamePage: React.FC = () => {
     }
   }, [availableQuests]);
 
+  // Phase 1: Math Jungle quest stations (totems) — station N maps to the
+  // Nth available (uncompleted, unlocked) Math Jungle quest, in API order.
+  const handleQuestStation = useCallback((stationIndex: number) => {
+    const mathQuests = availableQuests.filter(q =>
+      q.world === 'math_jungle' && !q.is_completed && !q.is_locked
+    );
+    const quest = mathQuests[stationIndex];
+
+    if (quest) {
+      setState({
+        gameState: 'QUEST',
+        activeQuestId: quest.id,
+        questData: quest,
+        pendingReward: null,
+      });
+    } else {
+      console.log('[GamePage] No available Math Jungle quest at station:', stationIndex);
+    }
+  }, [availableQuests]);
+
   // Handle quest completion
   const handleQuestComplete = useCallback(async (reward: RewardCeremony) => {
     setState(prev => ({
@@ -243,6 +263,7 @@ export const GamePage: React.FC = () => {
       <HubWorld
         childProfile={childProfile}
         onPortalEnter={handlePortalEnter}
+        onQuestStation={handleQuestStation}
       />
     </div>
   );
