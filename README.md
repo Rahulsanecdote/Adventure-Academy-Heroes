@@ -85,11 +85,17 @@ yarn dev
 
 ---
 
-## 👤 Default Credentials
+## 👤 Accounts
 
 **Admin Account** (for quest management):
-- Email: `admin@kidquest.com`
-- Password: `admin123`
+- There are **no default credentials**. An admin account is created only when
+  you seed the database with the `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+  environment variables set:
+  ```bash
+  ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=<a-strong-password> python -m app.seed_data
+  ```
+- ⚠️ The default admin password published in earlier versions of this README
+  must be considered **compromised** — rotate it anywhere it was reused.
 
 **Parent Account** (create via signup):
 - Create your own parent account at `/signup`
