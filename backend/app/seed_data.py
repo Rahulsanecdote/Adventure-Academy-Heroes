@@ -7,6 +7,7 @@ from app.database import (
 )
 from app.utils.auth import get_password_hash
 from datetime import datetime
+import os
 import uuid
 
 def clear_collections():
@@ -17,26 +18,38 @@ def clear_collections():
     cosmetics_collection.delete_many({})
 
 def seed_admin_user():
-    """Create default admin user"""
-    print("Creating admin user...")
-    
+    """Create the admin user from environment variables.
+
+    The admin account is only created when BOTH ADMIN_EMAIL and
+    ADMIN_PASSWORD are set in the environment. There is deliberately no
+    default or hardcoded credential: earlier versions of this project
+    shipped a published default admin password, which must be considered
+    compromised and rotated anywhere it was reused.
+    """
+    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+
+    if not admin_email or not admin_password:
+        print("Skipping admin user: ADMIN_EMAIL / ADMIN_PASSWORD not set")
+        return "system"
+
     # Check if admin exists
-    existing = users_collection.find_one({"email": "admin@kidquest.com"})
+    existing = users_collection.find_one({"email": admin_email})
     if existing:
         print("Admin user already exists")
         return existing["id"]
-    
+
     admin_id = str(uuid.uuid4())
     admin = {
         "id": admin_id,
-        "email": "admin@kidquest.com",
-        "hashed_password": get_password_hash("admin123"),
+        "email": admin_email,
+        "hashed_password": get_password_hash(admin_password),
         "role": "admin",
         "created_at": datetime.utcnow(),
         "consent_timestamp": datetime.utcnow()
     }
     users_collection.insert_one(admin)
-    print(f"Admin user created: admin@kidquest.com / admin123")
+    print(f"Admin user created: {admin_email} (password taken from ADMIN_PASSWORD env var)")
     return admin_id
 
 def seed_math_quests(admin_id: str):
@@ -536,9 +549,8 @@ def main():
     print("\n" + "="*50)
     print("Seeding complete!")
     print("="*50)
-    print("\nDefault Admin Credentials:")
-    print("Email: admin@kidquest.com")
-    print("Password: admin123")
+    print("\nAdmin account: created only when ADMIN_EMAIL and ADMIN_PASSWORD")
+    print("are set in the environment before seeding. No default credentials exist.")
     print("\n")
 
 if __name__ == "__main__":
