@@ -12,7 +12,7 @@
 
 ### 1. Login Flow ✅
 - **Status:** WORKING
-- **Details:** Admin login (admin@kidquest.com / admin123) works perfectly
+- **Details:** Admin login (admin@kidquest.com / [REDACTED — previously published default password, now removed]) works perfectly
 - **Redirect:** Successfully redirects to /parent/dashboard
 - **UI:** Login form renders correctly with proper styling
 
@@ -177,7 +177,7 @@
   - `/api/admin/*` - Content management
 
 - **Seeded Content**
-  - Admin account: admin@kidquest.com / admin123
+  - Admin account: admin@kidquest.com / [REDACTED — previously published default password, now removed]
   - 4 complete quests across 3 worlds
   - 5 cosmetic items
   - Quest steps with hints and rewards
@@ -231,7 +231,7 @@
 ### Admin Account (for content management)
 ```
 Email: admin@kidquest.com
-Password: admin123
+Password: [REDACTED — previously published default password, now removed]
 ```
 
 ### Parent Account
@@ -500,7 +500,7 @@ curl http://localhost:8001/api/quests
 #### ✅ FULLY WORKING COMPONENTS
 
 1. **Authentication & Navigation Flow** ✅
-   - Admin login (admin@kidquest.com / admin123) works perfectly
+   - Admin login (admin@kidquest.com / [REDACTED — previously published default password, now removed]) works perfectly
    - Automatic redirect to parent dashboard
    - TestHero profile (Level 1, 0 XP, 0 Coins) visible and correct
    - "Start TestHero's Game Session" button functional
@@ -653,7 +653,7 @@ The KidQuest Academy 3D Quest System demonstrates **production-level quality** w
 
 ### Seeded Test User
 - **Child Profile**: TestHero (Level 2, 100 XP, 50 Coins after quest completion)
-- **Parent Account**: admin@kidquest.com / admin123
+- **Parent Account**: admin@kidquest.com / [REDACTED — previously published default password, now removed]
 
 ---
 

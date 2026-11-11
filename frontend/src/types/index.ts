@@ -17,6 +17,7 @@ export interface AvatarCustomization {
   hair_style: string;
   hair_color: string;
   outfit: string;
+  outfit_color?: string;
   accessory?: string;
 }
 
