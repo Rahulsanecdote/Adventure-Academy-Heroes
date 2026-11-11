@@ -4,10 +4,12 @@ from app.models.progress import QuestProgress, QuestProgressCreate, QuestProgres
 from app.models.reward import RewardCeremony, Badge, Cosmetic
 from app.models.user import TokenData
 from app.database import (
-    progress_collection, children_collection, quests_collection, 
-    quest_steps_collection, inventory_collection, cosmetics_collection
+    progress_collection, children_collection, quests_collection,
+    quest_steps_collection, inventory_collection, cosmetics_collection,
+    attempts_collection
 )
 from app.utils.auth import get_current_user
+from app.utils.rewards import award_quest_rewards
 from datetime import datetime
 import uuid
 import math
@@ -105,64 +107,37 @@ async def complete_quest(progress_id: str, current_user: TokenData = Depends(get
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Quest not found"
         )
-    
+
+    # Never award twice for the same progress row
+    if progress.get("completed_at"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Quest already completed"
+        )
+
+    # Phase 1: Math Jungle quests are completed through the server-validated
+    # Math Challenge (routers/challenges.py), never by a bare progress call.
+    if quest.get("world") == "math_jungle" and quest.get("subject") == "math":
+        passed_attempt = attempts_collection.find_one({
+            "child_id": child["id"],
+            "quest_id": quest["id"],
+            "passed": True,
+        })
+        if not passed_attempt:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This quest must be completed through the Math Challenge"
+            )
+
     # Mark quest as completed
     progress_collection.update_one(
         {"id": progress_id},
         {"$set": {"completed_at": datetime.utcnow()}}
     )
-    
-    # Award XP and coins
-    old_xp = child["total_xp"]
-    old_level = child["level"]
-    new_xp = old_xp + quest["xp_reward"]
-    new_level = calculate_level(new_xp)
-    new_coins = child["coins"] + quest["coin_reward"]
-    
-    children_collection.update_one(
-        {"id": child["id"]},
-        {"$set": {
-            "total_xp": new_xp,
-            "level": new_level,
-            "coins": new_coins
-        }}
-    )
-    
-    # Award badge if applicable
-    badges = []
-    if quest.get("badge_id"):
-        # Add badge to inventory
-        inventory_item = {
-            "id": str(uuid.uuid4()),
-            "child_id": child["id"],
-            "item_type": "badge",
-            "item_id": quest["badge_id"],
-            "earned_at": datetime.utcnow(),
-            "is_equipped": False
-        }
-        inventory_collection.insert_one(inventory_item)
-        
-        # Mock badge data (will be replaced with actual badge system)
-        badges.append(Badge(
-            id=quest["badge_id"],
-            name=f"{quest['title']} Master",
-            description=f"Completed {quest['title']}",
-            icon="🏆",
-            category=quest["subject"],
-            rarity="common",
-            created_at=datetime.utcnow()
-        ))
-    
-    return RewardCeremony(
-        quest_title=quest["title"],
-        xp_earned=quest["xp_reward"],
-        coins_earned=quest["coin_reward"],
-        badges=badges,
-        cosmetics=[],
-        new_level=new_level if new_level > old_level else None,
-        total_xp=new_xp,
-        total_coins=new_coins
-    )
+
+    # Award XP, coins and any badge through the shared reward path
+    reward_data = award_quest_rewards(child, quest)
+    return RewardCeremony(**reward_data)
 
 @router.get("/child/{child_id}", response_model=List[QuestProgress])
 async def get_child_progress(child_id: str, current_user: TokenData = Depends(get_current_user)):
