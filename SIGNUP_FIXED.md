@@ -35,7 +35,7 @@ Now requests correctly go to:
 
 ### Or Test with Existing Admin:
 - Email: `admin@kidquest.com`
-- Password: `admin123`
+- Password: `[REDACTED — previously published default password, now removed]`
 - Go to: https://coppa-kids.preview.emergentagent.com/login
 
 ## Verification
