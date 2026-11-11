@@ -246,4 +246,24 @@ export const challengesAPI = {
   },
 };
 
+// Multiplayer APIs (Phase 2: game-session tokens for the Colyseus server)
+export interface GameSession {
+  token: string;
+  token_type: string;
+  expires_in: number;
+  child_id: string;
+  display_name: string;
+  age_band: string;
+  avatar: AvatarCustomization;
+}
+
+export const multiplayerAPI = {
+  sessionToken: async (childId: string): Promise<GameSession> => {
+    const response = await api.post<GameSession>('/api/multiplayer/session-token', {
+      child_id: childId,
+    });
+    return response.data;
+  },
+};
+
 export default api;
