@@ -137,6 +137,16 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
     };
   }, [childProfile, handleNPCClick, handlePortalProximity, handlePortalEnterRequest, onQuestStation]);
 
+  // Co-op boss auto-join: if a fight is active (someone else started it, or
+  // we entered Math Jungle mid-fight) and we hold no question, ask the
+  // server for one instead of sitting on "Joining the fight…" forever.
+  // The Join fight button below is the manual fallback for the same path.
+  useEffect(() => {
+    if (bossActive && !bossQuestion && mpOnline === true && currentWorld === 'math_jungle') {
+      mpRef.current?.joinBoss();
+    }
+  }, [bossActive, bossQuestion, mpOnline, currentWorld]);
+
   const submitBossAnswer = useCallback(() => {
     const value = parseInt(bossAnswer, 10);
     if (Number.isNaN(value)) return;
@@ -324,7 +334,22 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
                     </div>
                   </>
                 ) : (
-                  <div className="text-white/80 text-sm">Joining the fight…</div>
+                  <>
+                    <div className="text-white/80 text-sm mb-2">
+                      The boss fight is on! Join in to get your own question.
+                    </div>
+                    <GameButton
+                      size="sm"
+                      variant="warning"
+                      className="w-full"
+                      onClick={() => mpRef.current?.joinBoss()}
+                    >
+                      Join fight
+                    </GameButton>
+                    {mpOnline !== true && (
+                      <div className="text-white/60 text-xs mt-2">Boss fights need multiplayer — you're offline.</div>
+                    )}
+                  </>
                 )}
                 {bossFeedback && <div className="text-white/90 text-sm mt-2">{bossFeedback}</div>}
               </>

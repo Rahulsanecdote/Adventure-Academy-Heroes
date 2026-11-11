@@ -91,6 +91,16 @@ export class MultiplayerClient {
   private moveTimer: number | null = null;
   private bossCallbacks: BossCallbacks | null = null;
   private bossWiredRoom: Room<ServerState> | null = null;
+  // Boss-join tracking: whether this client currently holds a question and
+  // whether an auto-join has already been sent for the active fight.
+  private bossHasQuestion = false;
+  private bossJoinRequested = false;
+  // Connection generation: bumped by connect() (new generation) and by
+  // disconnect() (invalidates the in-flight one).
+  // A connect() that finishes after its generation was invalidated must
+  // abandon the room it just joined instead of attaching to a (possibly
+  // disposed) engine — the StrictMode / unmount-mid-connect race.
+  private connectionGeneration = 0;
 
   online = false;
   currentWorld: WorldKey = 'hub';
@@ -110,20 +120,33 @@ export class MultiplayerClient {
 
   /** Connect and join the room for `world`. Returns false -> offline mode. */
   async connect(engine: GameEngine, world: WorldKey): Promise<boolean> {
+    const generation = ++this.connectionGeneration;
     this.engine = engine;
     try {
       const session = await multiplayerAPI.sessionToken(this.childId);
+      if (generation !== this.connectionGeneration) {
+        // disconnect() (or a newer connect) happened while we awaited the
+        // token: abandon before joining any room.
+        return false;
+      }
       const room = await this.client.joinOrCreate<ServerState>('world', {
         token: session.token,
         world,
         ageBand: roomAgeBand(this.profileAgeBand),
         partyCode: this.partyCode,
       });
+      if (generation !== this.connectionGeneration) {
+        // disconnect() happened while the join was in flight: leave the
+        // room we just got, attach nothing, start no movement interval.
+        try { await room.leave(); } catch { /* already gone */ }
+        return false;
+      }
       this.attachRoom(room, world);
       this.online = true;
       this.currentWorld = world;
       return true;
     } catch (err) {
+      if (generation !== this.connectionGeneration) return false;
       console.warn('[Multiplayer] unavailable, continuing in offline mode:', err);
       this.online = false;
       return false;
@@ -140,6 +163,8 @@ export class MultiplayerClient {
 
   private attachRoom(room: Room<ServerState>, world: WorldKey): void {
     this.room = room;
+    this.bossHasQuestion = false;
+    this.bossJoinRequested = false;
     const engine = this.engine;
     if (!engine) return;
 
@@ -178,9 +203,13 @@ export class MultiplayerClient {
 
     state.boss.onChange?.(() => {
       this.bossCallbacks?.onBossState(state.boss.active, state.boss.hp, state.boss.maxHp);
+      this.maybeAutoJoinBoss(state.boss.active);
     });
     this.bossCallbacks?.onBossState(state.boss.active, state.boss.hp, state.boss.maxHp);
     this.wireBoss(room);
+    // Joining a room where a fight is already running (portal into Math
+    // Jungle mid-fight, or a late room join): ask for a question right away.
+    this.maybeAutoJoinBoss(state.boss.active);
 
     room.onLeave(() => {
       this.online = false;
@@ -201,14 +230,44 @@ export class MultiplayerClient {
     if (!this.bossCallbacks || this.bossWiredRoom === room) return;
     this.bossWiredRoom = room;
     room.onMessage('boss_question', (msg: { prompt: string }) => {
+      this.bossHasQuestion = true;
+      this.bossJoinRequested = false;
       this.bossCallbacks?.onQuestion(msg.prompt);
     });
     room.onMessage('boss_result', (msg: { correct: boolean; hp: number }) => {
+      // The question was consumed; the server sends the next one itself
+      // while the fight continues, so this is not an auto-join trigger.
+      this.bossHasQuestion = false;
       this.bossCallbacks?.onResult(msg.correct, msg.hp);
     });
     room.onMessage('boss_event', (msg: { type: string; participants?: string[] }) => {
+      if (msg.type === 'defeated') {
+        this.bossHasQuestion = false;
+        this.bossJoinRequested = false;
+      }
       this.bossCallbacks?.onEvent(msg);
     });
+  }
+
+  /** Auto-join: boss is active and we hold no question -> ask the server
+   *  for one via boss_join (idempotent server-side). Sent at most once per
+   *  question-less stretch; joinBoss() stays available as the UI fallback. */
+  private maybeAutoJoinBoss(active: boolean): void {
+    if (!active) {
+      this.bossJoinRequested = false;
+      return;
+    }
+    if (this.bossHasQuestion || this.bossJoinRequested) return;
+    this.bossJoinRequested = true;
+    this.room?.send('boss_join');
+  }
+
+  /** Join the active boss fight (fallback button in the boss panel, and
+   *  safe to call repeatedly — the server keeps the existing question). */
+  joinBoss(): void {
+    if (!this.room || this.bossHasQuestion) return;
+    this.bossJoinRequested = true;
+    this.room.send('boss_join');
   }
 
   sendPhrase(phraseId: string): void {
@@ -231,16 +290,24 @@ export class MultiplayerClient {
       this.moveTimer = null;
     }
     this.engine?.clearRemotePlayers();
+    const room = this.room;
+    this.room = null;
+    this.bossWiredRoom = null;
+    this.bossHasQuestion = false;
+    this.bossJoinRequested = false;
     try {
-      await this.room?.leave();
+      await room?.leave();
     } catch {
       // already gone
     }
-    this.room = null;
     this.online = false;
   }
 
   async disconnect(): Promise<void> {
+    // Invalidate any in-flight connect() FIRST: when its awaits resolve it
+    // will see the generation mismatch, leave the room it just joined, and
+    // attach nothing (no movement interval against a disposed engine).
+    this.connectionGeneration++;
     await this.leaveRoom();
   }
 }

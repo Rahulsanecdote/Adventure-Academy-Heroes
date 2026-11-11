@@ -57,7 +57,7 @@ const server = spawn('node', ['dist/index.js'], {
 server.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
 server.stderr.on('data', (d) => process.stdout.write(`[server-err] ${d}`));
 
-let roomA, roomB;
+let roomA, roomB, roomC;
 try {
   // wait for health
   await waitFor(async () => true, 1, 'tick');
@@ -133,7 +133,12 @@ try {
   await sleep(500);
   check('phrase state unchanged after invalid sends', bViewOfA()?.phraseId === 'hello');
 
-  // Co-op boss: A starts, both answer their own prompts, HP falls to defeat.
+  // Co-op boss: A starts, everyone answers their own prompts, HP falls
+  // to defeat. REGRESSION COVERAGE for the PR #23 Codex finding: B must
+  // get a question WITHOUT ever sending boss_start — the frontend's join
+  // path is boss_join (auto-sent when the boss is active and the local
+  // player has no question). C joins the room MID-FIGHT and must also be
+  // able to get a question via boss_join.
   const questions = new Map();
   const bossEvents = [];
   for (const [room, key] of [[roomA, 'A'], [roomB, 'B']]) {
@@ -145,12 +150,31 @@ try {
   check('boss fight started', roomA.state.boss.hp === 10, `hp=${roomA.state.boss.hp}`);
   await waitFor(() => questions.has('A'), 5000, 'A got a boss question');
 
-  roomB.send('boss_start'); // B joins the fight -> gets own question
-  await waitFor(() => questions.has('B'), 5000, 'B got a boss question');
+  // B joins through boss_join only — no boss_start from B, ever.
+  roomB.send('boss_join');
+  await waitFor(() => questions.has('B'), 5000, 'B got a boss question via boss_join');
+  check('boss join: B gets a question via boss_join without boss_start', true);
+
+  // boss_join is idempotent: a repeat must not replace B's question.
+  const bPromptBefore = questions.get('B');
+  roomB.send('boss_join');
+  await sleep(500);
+  check('boss join: duplicate boss_join does not replace B question',
+    questions.get('B') === bPromptBefore, `prompt=${questions.get('B')}`);
+
+  // C joins the room mid-fight, then joins the fight via boss_join.
+  const clientC = new Client(ENDPOINT);
+  roomC = await clientC.joinOrCreate('world', joinOpts(mintToken('child-C', 'Carla', '7-9')));
+  check('mid-fight join: C lands in same room', roomC.roomId === roomA.roomId, `room=${roomC.roomId}`);
+  roomC.onMessage('boss_question', (msg) => questions.set('C', msg.prompt));
+  roomC.onMessage('boss_event', (msg) => bossEvents.push(msg));
+  roomC.send('boss_join');
+  await waitFor(() => questions.has('C'), 5000, 'C got a boss question via boss_join');
+  check('mid-fight join: C gets a question via boss_join', true);
 
   let sawHpDrop = false;
   for (let i = 0; i < 40 && roomA.state.boss.hp > 0; i++) {
-    for (const [room, key] of [[roomA, 'A'], [roomB, 'B']]) {
+    for (const [room, key] of [[roomA, 'A'], [roomB, 'B'], [roomC, 'C']]) {
       const prompt = questions.get(key);
       if (prompt) {
         questions.delete(key);
@@ -164,8 +188,9 @@ try {
   await waitFor(() => bossEvents.some((e) => e.type === 'defeated'), 5000, 'defeated broadcast');
   const defeated = bossEvents.find((e) => e.type === 'defeated');
   check('boss defeated broadcast', true);
-  check('defeat lists both participants',
-    defeated.participants.includes('child-A') && defeated.participants.includes('child-B'),
+  check('defeat lists all participants (starter, boss_join, mid-fight join)',
+    defeated.participants.includes('child-A') && defeated.participants.includes('child-B') &&
+      defeated.participants.includes('child-C'),
     JSON.stringify(defeated.participants));
   check('boss inactive after defeat', roomA.state.boss.active === false);
 
@@ -180,7 +205,7 @@ try {
 } catch (err) {
   check(`smoke run completed without exception (${err.message})`, false);
 } finally {
-  try { roomA?.leave(); roomB?.leave(); } catch { /* ignore */ }
+  try { roomA?.leave(); roomB?.leave(); roomC?.leave(); } catch { /* ignore */ }
   server.kill('SIGTERM');
 }
 

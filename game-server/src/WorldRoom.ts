@@ -102,6 +102,7 @@ export class WorldRoom extends Room<WorldState> {
     this.onMessage('move', (client, data) => this.handleMove(client, data));
     this.onMessage('phrase', (client, data) => this.handlePhrase(client, data));
     this.onMessage('boss_start', (client) => this.handleBossStart(client));
+    this.onMessage('boss_join', (client) => this.handleBossJoin(client));
     this.onMessage('boss_answer', (client, data) => this.handleBossAnswer(client, data));
 
     console.log(`[room] created world=${world} roomId=${this.roomId}`);
@@ -232,9 +233,39 @@ export class WorldRoom extends Room<WorldState> {
       this.state.boss.active = true;
       this.state.boss.hp = BOSS_MAX_HP;
       this.bossParticipants.clear();
+      this.bossQuestions.clear();
       this.broadcast('boss_event', { type: 'started', hp: BOSS_MAX_HP });
       console.log(`[room ${this.roomId}] boss fight started by ${player.displayName}`);
+      // Everyone already in the room joins the fight they can see start:
+      // each eligible player gets their OWN question, not just the starter.
+      // (Previously only the starter got a question and everyone else was
+      // stuck on "Joining the fight…" — Codex review on PR #23.)
+      for (const roomClient of this.clients) {
+        this.joinBossFight(roomClient);
+      }
+      return;
     }
+    // Fight already active: boss_start doubles as a join for the sender.
+    this.joinBossFight(client);
+  }
+
+  /** boss_join: a player who did not start the fight (including one who
+   *  entered the room / Math Jungle mid-fight) asks to participate.
+   *  Idempotent: a player who already has a question keeps that question —
+   *  no duplicate question, no duplicate participant entry. */
+  private handleBossJoin(client: Client) {
+    if (this.roomWorld !== 'math_jungle') {
+      client.send('boss_event', { type: 'unavailable', reason: 'not_in_math_jungle' });
+      return;
+    }
+    if (!this.state.boss.active) return;
+    this.joinBossFight(client);
+  }
+
+  private joinBossFight(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !this.state.boss.active) return;
+    if (this.bossQuestions.has(client.sessionId)) return;
     this.bossParticipants.add(player.childId);
     this.sendBossQuestion(client);
   }
@@ -250,7 +281,10 @@ export class WorldRoom extends Room<WorldState> {
     const player = this.state.players.get(client.sessionId);
     const question = this.bossQuestions.get(client.sessionId);
     if (!player || !question) {
-      if (player) this.sendBossQuestion(client);
+      // No current question (e.g. answered before joining): treat the
+      // answer attempt as a join so the player gets a question instead
+      // of being silently stuck.
+      if (player) this.joinBossFight(client);
       return;
     }
 
@@ -275,6 +309,7 @@ export class WorldRoom extends Room<WorldState> {
       console.log(`[room ${this.roomId}] boss defeated by ${participants.length} participant(s)`);
       void this.requestBossRewards(participants);
       this.bossParticipants.clear();
+      this.bossQuestions.clear();
       return;
     }
 

@@ -35,6 +35,10 @@ interface RemoteAvatar {
   phrasePlane: BABYLON.Mesh;
   phraseTexture: BABYLON.DynamicTexture;
   phraseId: string;
+  /** Server timestamp (phraseAt) of the last phrase event we displayed.
+   *  Retained after the bubble expires — it is the identity of the event,
+   *  so a stale retained phraseId in state can never replay it. */
+  phraseAt: number;
   phraseExpiresAt: number;
   anim: string;
 }
@@ -367,6 +371,7 @@ export class GameEngine {
         phrasePlane: phrase.plane,
         phraseTexture: phrase.texture,
         phraseId: '',
+        phraseAt: 0,
         phraseExpiresAt: 0,
         anim: state.anim,
       };
@@ -377,13 +382,27 @@ export class GameEngine {
     remote.targetRotY = state.rotY;
     remote.anim = state.anim;
 
-    if (state.phraseId && state.phraseId !== remote.phraseId) {
+    // A phrase event is identified by its synced phraseAt timestamp, NOT
+    // by phraseId: the server retains the last phraseId indefinitely, so
+    // keying off the ID replays an expired phrase on the next movement
+    // update (and never refreshes a legitimate repeat of the same phrase).
+    // A new phraseAt — even for the same phraseId — is a new event, and
+    // its expiry is computed from phraseAt itself.
+    if (state.phraseId && state.phraseAt && state.phraseAt !== remote.phraseAt) {
+      remote.phraseAt = state.phraseAt;
       const label = phraseLabel(state.phraseId);
-      if (label) {
+      const expiresAt = state.phraseAt + PHRASE_BUBBLE_MS;
+      if (label && expiresAt > Date.now()) {
         drawLabelTexture(remote.phraseTexture, label, 44);
         remote.phrasePlane.isVisible = true;
         remote.phraseId = state.phraseId;
-        remote.phraseExpiresAt = Date.now() + PHRASE_BUBBLE_MS;
+        remote.phraseExpiresAt = expiresAt;
+      } else {
+        // Already expired by the time we first saw it (e.g. joining a
+        // room where a phrase is still retained in state): never show it.
+        remote.phrasePlane.isVisible = false;
+        remote.phraseId = state.phraseId;
+        remote.phraseExpiresAt = expiresAt;
       }
     }
   }
@@ -431,6 +450,9 @@ export class GameEngine {
       if (remote.phrasePlane.isVisible && now > remote.phraseExpiresAt) {
         remote.phrasePlane.isVisible = false;
         remote.phraseId = '';
+        // remote.phraseAt is deliberately NOT cleared: it marks this
+        // phrase event as seen, so the retained state value cannot
+        // re-display it on the next movement update.
       }
     }
     if (this.localPhrasePlane?.isVisible && now > this.localPhraseExpiresAt) {
