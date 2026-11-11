@@ -7,6 +7,7 @@ import { ScienceSimulation } from './puzzles/ScienceSimulation';
 import { DialogueStep } from './puzzles/DialogueStep';
 import { CollectStep } from './puzzles/CollectStep';
 import { RewardCeremony as RewardCeremonyComponent } from './RewardCeremony';
+import { MathChallenge } from './MathChallenge';
 import { GameButton } from '../ui/GameButton';
 import { ProgressBar } from '../ui/ProgressBar';
 import { Loading } from '../ui/Loading';
@@ -19,7 +20,7 @@ interface QuestRunnerProps {
 }
 
 // Quest Runner state machine
-type RunnerState = 'LOADING' | 'RUNNING' | 'REWARD' | 'ERROR';
+type RunnerState = 'LOADING' | 'RUNNING' | 'CHALLENGE' | 'REWARD' | 'ERROR';
 
 export const QuestRunner: React.FC<QuestRunnerProps> = ({
   questId,
@@ -101,8 +102,16 @@ export const QuestRunner: React.FC<QuestRunnerProps> = ({
 
   // Complete quest and get rewards
   const completeQuest = async () => {
-    if (!progress) return;
-    
+    if (!progress || !quest) return;
+
+    // Phase 1: Math Jungle quests finish through the server-validated Math
+    // Challenge — the backend grades answers and awards XP/coins itself.
+    // A bare progress call for these quests is rejected by the backend.
+    if (quest.world === 'math_jungle' && quest.subject === 'math') {
+      setRunnerState('CHALLENGE');
+      return;
+    }
+
     try {
       // Call backend to complete quest and award rewards
       const rewardData = await progressAPI.completeQuest(progress.id);
@@ -157,6 +166,21 @@ export const QuestRunner: React.FC<QuestRunnerProps> = ({
   }
 
   // REWARD state - show ceremony
+  if (runnerState === 'CHALLENGE') {
+    return (
+      <MathChallenge
+        childId={childProfile.id}
+        questId={quest.id}
+        questTitle={quest.title}
+        onComplete={(challengeReward) => {
+          setReward(challengeReward);
+          setRunnerState('REWARD');
+        }}
+        onExit={onExit}
+      />
+    );
+  }
+
   if (runnerState === 'REWARD' && reward) {
     return (
       <RewardCeremonyComponent
