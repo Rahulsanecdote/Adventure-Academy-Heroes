@@ -49,7 +49,7 @@ VITE_BACKEND_URL=https://coppa-kids.preview.emergentagent.com/api
 **Main URL**: https://coppa-kids.preview.emergentagent.com
 
 **Test Credentials**:
-- Admin: admin@kidquest.com / admin123
+- Admin: admin@kidquest.com / [REDACTED — previously published default password, now removed]
 - Parent: Create via signup
 
 ## 🚀 Features Available
