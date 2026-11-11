@@ -1,18 +1,25 @@
 import * as BABYLON from '@babylonjs/core';
-import type { GameConfig, GameState, PortalData } from './types';
+import type { GameConfig, GameState, PortalData, WorldKey } from './types';
 import { buildAvatar } from './avatar';
-import { buildHubWorld } from './world';
+import { buildHubWorld, buildMathJungleWorld } from './world';
 import { PlayerController } from './playerController';
 
 export * from './types';
 
 // ---------------------------------------------------------------------------
-// GameEngine — thin composition layer.
+// GameEngine — thin composition layer + scene system (Phase 1).
 // Scene/lighting setup and the render loop live here; avatar building is in
 // avatar.ts, world construction in world.ts, and movement/animation in
-// playerController.ts. (Split from the original single-file engine in
-// Phase 0 — behaviour unchanged.)
+// playerController.ts.
+//
+// Worlds are built under a disposable root node. Walking into the Math
+// Jungle portal loads the jungle scene in-engine (dispose hub root, build
+// jungle, keep player + camera); the jungle's return portal loads the hub
+// again. Other portals (Code City / Science Lab) still hand control to the
+// React layer via onPortalEnter, exactly as before.
 // ---------------------------------------------------------------------------
+
+const STATION_TRIGGER_RADIUS = 3.5;
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -26,10 +33,18 @@ export class GameEngine {
 
   private controller: PlayerController | null = null;
 
+  // Scene system
+  private currentWorld: WorldKey = 'hub';
+  private worldRoot: BABYLON.TransformNode | null = null;
+
   // Portal proximity system
   private portals: PortalData[] = [];
   private currentPortalProximity: PortalData | null = null;
   private portalDwellTime = 0;
+
+  // Quest station proximity (Math Jungle)
+  private stations: { index: number; position: BABYLON.Vector3 }[] = [];
+  private currentStationProximity: number | null = null;
 
   constructor(config: GameConfig) {
     this.config = config;
@@ -63,18 +78,88 @@ export class GameEngine {
 
     scene.collisionsEnabled = true;
 
+    // Tap/click on the ground = walk there (click-to-move / tap-to-move).
+    scene.onPointerDown = (_evt, pickInfo) => {
+      if (!pickInfo.hit || !pickInfo.pickedMesh || !pickInfo.pickedPoint) return;
+      const name = pickInfo.pickedMesh.name;
+      if (name.includes('ground') || name.includes('Ground') || name.startsWith('grassPatch')) {
+        this.controller?.setMoveTarget(pickInfo.pickedPoint.clone());
+      }
+    };
+
     return scene;
   }
 
   public setupWorld(): void {
-    const built = buildHubWorld(this.scene, {
-      onPortalEnter: (portal) => this.config.onPortalEnter?.(portal),
-      onNPCClick: (npcId) => this.config.onNPCClick?.(npcId),
-    });
-    this.portals = built.portals;
-
     this.createPlayer();
     this.createCamera();
+    this.loadWorld('hub');
+  }
+
+  /** Dispose the current world and build another one in its place. */
+  public loadWorld(key: WorldKey): void {
+    if (this.worldRoot) {
+      this.worldRoot.dispose(false);
+      this.worldRoot = null;
+    }
+    this.portals = [];
+    this.stations = [];
+    this.currentPortalProximity = null;
+    this.currentStationProximity = null;
+    this.config.onPortalProximity?.(null);
+    this.config.onStationProximity?.(null);
+
+    const callbacks = {
+      onPortalEnter: (portal: PortalData) => this.activatePortal(portal),
+      onNPCClick: (npcId: string) => this.config.onNPCClick?.(npcId),
+      onQuestStation: (index: number) => this.config.onQuestStation?.(index),
+    };
+
+    if (key === 'math_jungle') {
+      const built = buildMathJungleWorld(this.scene, callbacks);
+      this.worldRoot = built.root;
+      this.portals = built.portals;
+      this.stations = built.stations;
+    } else {
+      this.scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+      this.scene.fogDensity = 0;
+      const built = buildHubWorld(this.scene, callbacks);
+      this.worldRoot = built.root;
+      this.portals = built.portals;
+    }
+
+    this.currentWorld = key;
+    this.gameState = 'HUB';
+
+    // Respawn the player at the world's entry point
+    if (this.playerRoot) {
+      this.playerRoot.position = key === 'math_jungle'
+        ? new BABYLON.Vector3(0, 0, 12)
+        : new BABYLON.Vector3(0, 0, 0);
+      this.playerRoot.rotation = new BABYLON.Vector3(0, 0, 0);
+      this.controller?.setMoveTarget(null);
+    }
+
+    this.config.onWorldChange?.(key);
+  }
+
+  public getCurrentWorld(): WorldKey {
+    return this.currentWorld;
+  }
+
+  /** Portal activation routing: in-engine world portals switch scenes;
+   *  world-select portals keep the existing React quest flow. */
+  private activatePortal(portal: PortalData): void {
+    if (portal.worldKey === 'math_jungle' && this.currentWorld !== 'math_jungle') {
+      this.loadWorld('math_jungle');
+    } else if (portal.worldKey === 'hub' && this.currentWorld !== 'hub') {
+      this.loadWorld('hub');
+    } else {
+      this.config.onPortalEnter?.(portal);
+    }
+    // Reset proximity to prevent re-triggering
+    this.currentPortalProximity = null;
+    this.portalDwellTime = 0;
   }
 
   private createPlayer(): void {
@@ -92,7 +177,9 @@ export class GameEngine {
     this.controller = new PlayerController(this.scene, this.playerRoot, () => this.camera, {
       onInteractKey: () => {
         if (this.currentPortalProximity) {
-          this.enterPortal(this.currentPortalProximity);
+          this.activatePortal(this.currentPortalProximity);
+        } else if (this.currentStationProximity !== null) {
+          this.config.onQuestStation?.(this.currentStationProximity);
         }
       },
     });
@@ -140,19 +227,32 @@ export class GameEngine {
     }
   }
 
-  private enterPortal(portal: PortalData): void {
-    if (this.config.onPortalEnter) {
-      this.config.onPortalEnter(portal);
+  private checkStationProximity(): void {
+    if (!this.playerRoot || this.stations.length === 0) return;
+
+    const playerPos = this.playerRoot.position;
+    let nearest: number | null = null;
+    let nearestDist = Infinity;
+
+    for (const station of this.stations) {
+      const dist = BABYLON.Vector3.Distance(playerPos, station.position);
+      if (dist < STATION_TRIGGER_RADIUS && dist < nearestDist) {
+        nearest = station.index;
+        nearestDist = dist;
+      }
     }
-    // Reset proximity to prevent re-triggering
-    this.currentPortalProximity = null;
-    this.portalDwellTime = 0;
+
+    if (nearest !== this.currentStationProximity) {
+      this.currentStationProximity = nearest;
+      this.config.onStationProximity?.(nearest);
+    }
   }
 
   private startRenderLoop(): void {
     this.engine.runRenderLoop(() => {
       this.controller?.update();
       this.checkPortalProximity();
+      this.checkStationProximity();
       this.scene.render();
     });
 

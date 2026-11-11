@@ -5,6 +5,8 @@ import { childrenAPI } from '../services/api';
 import { GameButton } from '../components/ui/GameButton';
 import { Input } from '../components/ui/Input';
 import { GameCard } from '../components/ui/GameCard';
+import { AvatarCustomizer, DEFAULT_AVATAR } from '../components/ui/AvatarCustomizer';
+import type { AvatarCustomization } from '../types';
 
 export const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +14,7 @@ export const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
   const [ageBand, setAgeBand] = useState<'7-8' | '9-10' | '11-12'>('7-8');
+  const [avatar, setAvatar] = useState<AvatarCustomization>(DEFAULT_AVATAR);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,6 +32,7 @@ export const OnboardingPage: React.FC = () => {
         parent_id: user!.id,
         username: username.trim(),
         age_band: ageBand,
+        avatar,
       });
       await refreshChildren();
       navigate('/parent/dashboard');
@@ -92,6 +96,13 @@ export const OnboardingPage: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-xl font-display font-bold text-gray-800 mb-3">
+                🎨 Design Your Avatar
+              </h3>
+              <AvatarCustomizer value={avatar} onChange={setAvatar} />
             </div>
 
             <div className="bg-blue-50 p-6 rounded-xl border-4 border-blue-300 mb-6">

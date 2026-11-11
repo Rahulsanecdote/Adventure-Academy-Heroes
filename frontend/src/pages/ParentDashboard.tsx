@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { progressAPI, childrenAPI } from '../services/api';
+import { progressAPI, childrenAPI, challengesAPI } from '../services/api';
+import { AvatarCustomizer, DEFAULT_AVATAR } from '../components/ui/AvatarCustomizer';
 import { GameButton } from '../components/ui/GameButton';
 import { GameCard } from '../components/ui/GameCard';
 import { Avatar } from '../components/ui/Avatar';
@@ -10,7 +11,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { Loading } from '../components/ui/Loading';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import type { ChildProfile, ChildStats } from '../types';
+import type { ChildProfile, ChildStats, AvatarCustomization, SkillEvidence } from '../types';
 import { LogOut, Plus, TrendingUp, Award, Star } from 'lucide-react';
 
 export const ParentDashboard: React.FC = () => {
@@ -21,6 +22,10 @@ export const ParentDashboard: React.FC = () => {
   const [showAddChild, setShowAddChild] = useState(false);
   const [newChildUsername, setNewChildUsername] = useState('');
   const [newChildAge, setNewChildAge] = useState<'7-8' | '9-10' | '11-12'>('7-8');
+  const [newChildAvatar, setNewChildAvatar] = useState<AvatarCustomization>(DEFAULT_AVATAR);
+  const [showEditAvatar, setShowEditAvatar] = useState(false);
+  const [editAvatar, setEditAvatar] = useState<AvatarCustomization>(DEFAULT_AVATAR);
+  const [evidence, setEvidence] = useState<SkillEvidence[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -34,8 +39,19 @@ export const ParentDashboard: React.FC = () => {
   useEffect(() => {
     if (selectedChild) {
       loadChildStats(selectedChild.id);
+      loadSkillEvidence(selectedChild.id);
     }
   }, [selectedChild]);
+
+  // Phase 1: per-quest skill evidence from the server-validated Math Challenge
+  const loadSkillEvidence = async (childId: string) => {
+    try {
+      const data = await challengesAPI.getEvidence(childId);
+      setEvidence(data);
+    } catch (error) {
+      console.error('Failed to load skill evidence:', error);
+    }
+  };
 
   const loadChildStats = async (childId: string) => {
     try {
@@ -55,12 +71,34 @@ export const ParentDashboard: React.FC = () => {
         parent_id: user!.id,
         username: newChildUsername.trim(),
         age_band: newChildAge,
+        avatar: newChildAvatar,
       });
       await refreshChildren();
       setShowAddChild(false);
       setNewChildUsername('');
     } catch (error) {
       console.error('Failed to create child:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenEditAvatar = () => {
+    if (!selectedChild) return;
+    setEditAvatar({ ...DEFAULT_AVATAR, ...selectedChild.avatar });
+    setShowEditAvatar(true);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!selectedChild) return;
+    setLoading(true);
+    try {
+      const updated = await childrenAPI.updateAvatar(selectedChild.id, editAvatar);
+      await refreshChildren();
+      setSelectedChild(updated);
+      setShowEditAvatar(false);
+    } catch (error) {
+      console.error('Failed to update avatar:', error);
     } finally {
       setLoading(false);
     }
@@ -213,15 +251,75 @@ export const ParentDashboard: React.FC = () => {
           </div>
         </GameCard>
 
+        {/* Skill Evidence (Phase 1: server-validated Math Challenge) */}
+        <GameCard className="mb-8">
+          <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">
+            🧮 Math Jungle — Skill Evidence
+          </h2>
+          {evidence.length === 0 ? (
+            <p className="text-gray-600 text-lg">
+              No Math Challenge evidence yet. It appears here after{' '}
+              {selectedChild.username} plays a Math Jungle quest — every attempt is
+              graded on the server, so these numbers are verified.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {evidence.map((ev) => (
+                <div
+                  key={ev.quest_id}
+                  className="flex flex-wrap items-center justify-between gap-4 bg-green-50 border-4 border-green-200 rounded-2xl p-4"
+                >
+                  <div>
+                    <div className="font-display font-bold text-xl text-gray-800">
+                      {ev.quest_title}
+                    </div>
+                    <div className="text-gray-600 text-sm">
+                      Last played:{' '}
+                      {ev.last_played
+                        ? new Date(ev.last_played).toLocaleDateString()
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="flex gap-6 text-center">
+                    <div>
+                      <div className="text-2xl font-game text-gray-800">{ev.attempts}</div>
+                      <div className="text-xs text-gray-500 font-semibold">ATTEMPTS</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-game text-gray-800">
+                        {ev.total_correct}/{ev.total_questions}
+                      </div>
+                      <div className="text-xs text-gray-500 font-semibold">CORRECT</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl">{ev.passed ? '✅' : '⏳'}</div>
+                      <div className="text-xs text-gray-500 font-semibold">
+                        {ev.passed ? 'PASSED' : 'IN PROGRESS'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </GameCard>
+
         {/* Play Button */}
-        <div className="text-center">
-          <GameButton
-            size="xl"
-            onClick={() => handleStartSession(selectedChild)}
-            glow
-          >
-            🎮 Start {selectedChild.username}'s Game Session
-          </GameButton>
+        <div className="text-center space-y-4">
+          <div>
+            <GameButton
+              size="xl"
+              onClick={() => handleStartSession(selectedChild)}
+              glow
+            >
+              🎮 Start {selectedChild.username}'s Game Session
+            </GameButton>
+          </div>
+          <div>
+            <GameButton variant="purple" onClick={handleOpenEditAvatar}>
+              🎨 Customise {selectedChild.username}'s Avatar
+            </GameButton>
+          </div>
         </div>
       </div>
 
@@ -257,8 +355,25 @@ export const ParentDashboard: React.FC = () => {
           </div>
         </div>
 
+        <div className="mb-4">
+          <label className="block text-gray-700 font-semibold mb-3 text-lg">Avatar</label>
+          <AvatarCustomizer value={newChildAvatar} onChange={setNewChildAvatar} />
+        </div>
+
         <GameButton onClick={handleAddChild} disabled={loading} className="w-full">
           {loading ? 'Creating...' : '✨ Create Player Profile'}
+        </GameButton>
+      </Modal>
+
+      {/* Edit Avatar Modal (Phase 1) */}
+      <Modal
+        isOpen={showEditAvatar}
+        onClose={() => setShowEditAvatar(false)}
+        title="🎨 Customise Avatar"
+      >
+        <AvatarCustomizer value={editAvatar} onChange={setEditAvatar} />
+        <GameButton onClick={handleSaveAvatar} disabled={loading} className="w-full">
+          {loading ? 'Saving...' : '💾 Save Avatar'}
         </GameButton>
       </Modal>
     </div>

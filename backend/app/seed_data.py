@@ -254,8 +254,107 @@ def seed_math_quests(admin_id: str):
         }
     ]
     quest_steps_collection.insert_many(steps2)
-    
-    print(f"Created {2} Math quests")
+
+    # Quest 3: Multiplication River Rescue (Phase 1 — third Math Jungle quest)
+    quest3_id = str(uuid.uuid4())
+    quest3 = {
+        "id": quest3_id,
+        "title": "Multiplication River Rescue",
+        "description": "Build a raft to cross the river! Learn multiplication by grouping mangoes for the journey.",
+        "world": "math_jungle",
+        "subject": "math",
+        "difficulty": "medium",
+        "age_range": ["9-10", "11-12"],
+        "estimated_minutes": 12,
+        "xp_reward": 130,
+        "coin_reward": 65,
+        "badge_id": "badge_math_multiplication",
+        "prerequisites": [quest1_id],
+        "created_at": datetime.utcnow(),
+        "created_by": admin_id,
+        "is_active": True
+    }
+    quests_collection.insert_one(quest3)
+
+    steps3 = [
+        {
+            "id": str(uuid.uuid4()),
+            "quest_id": quest3_id,
+            "step_order": 1,
+            "step_type": "dialogue",
+            "title": "Meet Tilly the Toucan",
+            "description": "Tilly needs a raft to cross the river!",
+            "config": {
+                "character": "tilly_toucan",
+                "dialogue": "The river is too wide to fly my little ones across! If we build a raft and pack mangoes in equal groups, we can make the trip. Will you help me multiply?",
+                "choices": ["Let's build the raft!", "I love multiplying!"]
+            },
+            "hints": [],
+            "xp_reward": 15
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "quest_id": quest3_id,
+            "step_order": 2,
+            "step_type": "math_puzzle",
+            "title": "Groups of Mangoes",
+            "description": "Pack mangoes in equal groups",
+            "config": {
+                "puzzle_type": "multiplication",
+                "question": "Tilly packs 4 baskets with 3 mangoes in each basket. How many mangoes is that in total?",
+                "operand1": 4,
+                "operand2": 3,
+                "correct_answer": 12,
+                "visual_mode": True
+            },
+            "hints": [
+                "Add 3 four times: 3 + 3 + 3 + 3",
+                "Skip-count by 3s: 3, 6, 9, ...",
+                "The answer is 12"
+            ],
+            "xp_reward": 40
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "quest_id": quest3_id,
+            "step_order": 3,
+            "step_type": "math_puzzle",
+            "title": "Raft Planks",
+            "description": "Count the planks for the raft",
+            "config": {
+                "puzzle_type": "multiplication",
+                "question": "The raft needs 5 rows of 6 planks. How many planks are there in all?",
+                "operand1": 5,
+                "operand2": 6,
+                "correct_answer": 30,
+                "visual_mode": True
+            },
+            "hints": [
+                "Multiply 5 groups of 6",
+                "Skip-count by 6s five times: 6, 12, 18, 24, ...",
+                "The answer is 30"
+            ],
+            "xp_reward": 40
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "quest_id": quest3_id,
+            "step_order": 4,
+            "step_type": "collect",
+            "title": "River Rescue Badge",
+            "description": "You crossed the river — rescue complete!",
+            "config": {
+                "item": "river_rescue_trophy",
+                "quantity": 1,
+                "message": "You earned a River Rescue trophy!"
+            },
+            "hints": [],
+            "xp_reward": 35
+        }
+    ]
+    quest_steps_collection.insert_many(steps3)
+
+    print(f"Created {3} Math quests")
 
 def seed_coding_quests(admin_id: str):
     """Seed Code City quests"""

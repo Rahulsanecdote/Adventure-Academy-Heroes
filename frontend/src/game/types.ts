@@ -18,6 +18,8 @@ export interface GameConfig {
   onNPCClick?: (npcId: string) => void;
   /** Phase 1: fired when a quest station inside a world is activated. */
   onQuestStation?: (stationIndex: number) => void;
+  /** Phase 1: fired when the player walks near/away from a quest station. */
+  onStationProximity?: (stationIndex: number | null) => void;
   /** Phase 1: fired when the active world changes (e.g. hub -> math_jungle). */
   onWorldChange?: (worldKey: string) => void;
 }

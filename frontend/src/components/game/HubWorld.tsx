@@ -7,9 +7,11 @@ import { Modal } from '../ui/Modal';
 interface HubWorldProps {
   childProfile: ChildProfile;
   onPortalEnter?: (portal: PortalData) => void;
+  /** Phase 1: fired when a Math Jungle quest station is activated. */
+  onQuestStation?: (stationIndex: number) => void;
 }
 
-export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter }) => {
+export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter, onQuestStation }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   
@@ -23,10 +25,15 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter 
   const [nearPortal, setNearPortal] = useState<PortalData | null>(null);
   const [showPortalConfirm, setShowPortalConfirm] = useState(false);
 
+  // Phase 1 scene state: which world is loaded + nearby quest station
+  const [currentWorld, setCurrentWorld] = useState<string>('hub');
+  const [nearStation, setNearStation] = useState<number | null>(null);
+
   const handleNPCClick = useCallback((npcId: string) => {
     const messages: { [key: string]: string } = {
       'Guide': `Welcome to KidQuest Academy, ${childProfile.username}! Walk up to the glowing portals to start your learning adventures. Use WASD keys to move around, and press E when near a portal!`,
       'Shop Keeper': `Hey there! You have ${childProfile.coins} coins. Come back when we open the shop to buy cool cosmetics for your avatar!`,
+      'Miko': `Welcome to the Math Jungle, ${childProfile.username}! Find the glowing number totems and press E to start a quest. Finish the steps, then beat the Math Challenge to earn your rewards!`,
     };
     setNpcName(npcId);
     setNpcMessage(messages[npcId] || 'Hello there!');
@@ -62,6 +69,9 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter 
       onPortalProximity: handlePortalProximity,
       onPortalEnter: handlePortalEnterRequest,
       onNPCClick: handleNPCClick,
+      onQuestStation: (index) => onQuestStation?.(index),
+      onWorldChange: (worldKey) => setCurrentWorld(worldKey),
+      onStationProximity: (index) => setNearStation(index),
     });
 
     engine.setupWorld();
@@ -74,7 +84,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter 
       clearTimeout(timer);
       engine.dispose();
     };
-  }, [childProfile, handleNPCClick, handlePortalProximity, handlePortalEnterRequest]);
+  }, [childProfile, handleNPCClick, handlePortalProximity, handlePortalEnterRequest, onQuestStation]);
 
   const getPortalEmoji = (worldKey: string) => {
     const emojis: { [key: string]: string } = {
@@ -127,6 +137,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter 
               <div className="font-display font-bold text-white text-lg mb-2">🎮 Controls</div>
               <div className="space-y-1 text-sm text-white/90">
                 <div><strong>WASD</strong> - Move around</div>
+                <div><strong>Click ground</strong> - Walk there</div>
                 <div><strong>Space</strong> - Jump</div>
                 <div><strong>Mouse</strong> - Rotate camera</div>
                 <div><strong>Click</strong> - Interact with NPCs</div>
@@ -147,9 +158,35 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter 
       <div className="absolute bottom-4 left-4 pointer-events-none">
         <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-green p-4 pointer-events-auto">
           <div className="font-display font-bold text-white text-lg mb-2">🎯 Objective</div>
-          <div className="text-white/90">Explore the hub and find quest portals!</div>
+          <div className="text-white/90">
+            {currentWorld === 'math_jungle'
+              ? 'Find a glowing number totem and press E to start its quest!'
+              : 'Explore the hub and find quest portals!'}
+          </div>
         </div>
       </div>
+
+      {/* Current World Banner (Phase 1) */}
+      {currentWorld === 'math_jungle' && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
+          <div className="bg-green-900/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-2 text-center">
+            <span className="text-white font-display font-bold text-lg">🌴 Math Jungle</span>
+          </div>
+        </div>
+      )}
+
+      {/* Quest Station Proximity Prompt (Phase 1) */}
+      {nearStation !== null && currentWorld === 'math_jungle' && (
+        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 animate-bounce">
+          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-4 text-center">
+            <div className="text-3xl mb-2">🔢</div>
+            <div className="text-white font-bold text-lg">Quest Totem {nearStation + 1}</div>
+            <div className="text-yellow-400 font-semibold mt-2 animate-pulse">
+              Press <span className="bg-yellow-500 text-black px-2 py-1 rounded font-bold">E</span> to Start Quest
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Portal Proximity Prompt - floating above player */}
       {nearPortal && !showPortalConfirm && (
