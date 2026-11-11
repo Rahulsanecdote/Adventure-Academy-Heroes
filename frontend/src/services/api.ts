@@ -8,7 +8,11 @@ import type {
   QuestWithProgress,
   QuestProgress,
   RewardCeremony,
-  ChildStats
+  ChildStats,
+  AvatarCustomization,
+  ChallengeStart,
+  ChallengeResult,
+  SkillEvidence
 } from '../types';
 
 // API URL resolution strategy:
@@ -121,6 +125,7 @@ export const childrenAPI = {
     parent_id: string;
     username: string;
     age_band: string;
+    avatar?: AvatarCustomization;
   }): Promise<ChildProfile> => {
     const response = await api.post<ChildProfile>('/api/children', data);
     return response.data;
@@ -214,6 +219,29 @@ export const progressAPI = {
       throw new Error('Invalid childId: cannot fetch stats');
     }
     const response = await api.get<ChildStats>(`/api/progress/child/${childId}/stats`);
+    return response.data;
+  },
+};
+
+// Challenges APIs (Phase 1: server-validated Math Challenge)
+export const challengesAPI = {
+  start: async (childId: string, questId: string): Promise<ChallengeStart> => {
+    const response = await api.post<ChallengeStart>('/api/challenges/start', {
+      child_id: childId,
+      quest_id: questId,
+    });
+    return response.data;
+  },
+
+  submit: async (challengeId: string, answers: number[]): Promise<ChallengeResult> => {
+    const response = await api.post<ChallengeResult>(`/api/challenges/${challengeId}/submit`, {
+      answers,
+    });
+    return response.data;
+  },
+
+  getEvidence: async (childId: string): Promise<SkillEvidence[]> => {
+    const response = await api.get<SkillEvidence[]>(`/api/challenges/child/${childId}/evidence`);
     return response.data;
   },
 };
