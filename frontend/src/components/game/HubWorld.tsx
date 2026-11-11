@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine, PortalData } from '../../game/GameEngine';
+import type { WorldKey } from '../../game/types';
+import { MultiplayerClient } from '../../game/net/MultiplayerClient';
+import { PHRASES } from '../../game/net/phrases';
 import { ChildProfile } from '../../types';
 import { GameButton } from '../ui/GameButton';
 import { Modal } from '../ui/Modal';
@@ -14,7 +17,19 @@ interface HubWorldProps {
 export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter, onQuestStation }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  
+  const mpRef = useRef<MultiplayerClient | null>(null);
+
+  // Phase 2 multiplayer state: null = connecting, true = online, false = offline mode
+  const [mpOnline, setMpOnline] = useState<boolean | null>(null);
+  // Phase 2 co-op boss state
+  const [bossActive, setBossActive] = useState(false);
+  const [bossHp, setBossHp] = useState(0);
+  const [bossMaxHp, setBossMaxHp] = useState(10);
+  const [bossQuestion, setBossQuestion] = useState<string | null>(null);
+  const [bossAnswer, setBossAnswer] = useState('');
+  const [bossFeedback, setBossFeedback] = useState('');
+  const [bossVictory, setBossVictory] = useState(false);
+
   // UI State
   const [showNPCDialog, setShowNPCDialog] = useState(false);
   const [npcMessage, setNpcMessage] = useState('');
@@ -70,21 +85,74 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       onPortalEnter: handlePortalEnterRequest,
       onNPCClick: handleNPCClick,
       onQuestStation: (index) => onQuestStation?.(index),
-      onWorldChange: (worldKey) => setCurrentWorld(worldKey),
+      onWorldChange: (worldKey) => {
+        setCurrentWorld(worldKey);
+        // Phase 2: follow the player into the new world's room.
+        mpRef.current?.switchWorld(worldKey as WorldKey).then((ok) => setMpOnline(ok));
+      },
       onStationProximity: (index) => setNearStation(index),
     });
 
     engine.setupWorld();
     engineRef.current = engine;
 
+    // Phase 2: connect multiplayer (additive — failure means offline mode).
+    const partyCode = new URLSearchParams(window.location.search).get('party') || '';
+    const mp = new MultiplayerClient(childProfile.id, childProfile.age_band, partyCode);
+    mpRef.current = mp;
+    mp.setBossCallbacks({
+      onQuestion: (prompt) => setBossQuestion(prompt),
+      onResult: (correct, hp) => {
+        setBossHp(hp);
+        setBossFeedback(correct ? '✅ Hit! The boss felt that one!' : '❌ Not quite — try the next one!');
+      },
+      onEvent: (event) => {
+        if (event.type === 'started') {
+          setBossFeedback('👹 The Jungle Boss appeared! Answer questions to defeat it together!');
+          setBossVictory(false);
+        } else if (event.type === 'defeated') {
+          setBossVictory(true);
+          setBossQuestion(null);
+          setBossFeedback('');
+          setTimeout(() => setBossVictory(false), 6000);
+        }
+      },
+      onBossState: (active, hp, maxHp) => {
+        setBossActive(active);
+        setBossHp(hp);
+        setBossMaxHp(maxHp);
+        if (!active) setBossQuestion(null);
+      },
+    });
+    mp.connect(engine, 'hub').then((ok) => setMpOnline(ok));
+
     // Hide controls help after 5 seconds
     const timer = setTimeout(() => setShowControls(false), 5000);
 
     return () => {
       clearTimeout(timer);
+      void mp.disconnect();
+      mpRef.current = null;
       engine.dispose();
     };
   }, [childProfile, handleNPCClick, handlePortalProximity, handlePortalEnterRequest, onQuestStation]);
+
+  // Co-op boss auto-join: if a fight is active (someone else started it, or
+  // we entered Math Jungle mid-fight) and we hold no question, ask the
+  // server for one instead of sitting on "Joining the fight…" forever.
+  // The Join fight button below is the manual fallback for the same path.
+  useEffect(() => {
+    if (bossActive && !bossQuestion && mpOnline === true && currentWorld === 'math_jungle') {
+      mpRef.current?.joinBoss();
+    }
+  }, [bossActive, bossQuestion, mpOnline, currentWorld]);
+
+  const submitBossAnswer = useCallback(() => {
+    const value = parseInt(bossAnswer, 10);
+    if (Number.isNaN(value)) return;
+    mpRef.current?.answerBoss(value);
+    setBossAnswer('');
+  }, [bossAnswer]);
 
   const getPortalEmoji = (worldKey: string) => {
     const emojis: { [key: string]: string } = {
@@ -171,6 +239,121 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
           <div className="bg-green-900/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-2 text-center">
             <span className="text-white font-display font-bold text-lg">🌴 Math Jungle</span>
+          </div>
+        </div>
+      )}
+
+      {/* Multiplayer Status (Phase 2) */}
+      {mpOnline === false && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
+          <div className="bg-gray-900/85 backdrop-blur-sm rounded-2xl border-4 border-gray-400 px-5 py-2 text-center">
+            <span className="text-white font-display font-bold">📴 Offline mode — playing solo</span>
+          </div>
+        </div>
+      )}
+      {mpOnline === true && (
+        <div className="absolute top-20 right-4 z-40 pointer-events-none">
+          <div className="bg-green-900/80 backdrop-blur-sm rounded-full border-2 border-green-400 px-4 py-1">
+            <span className="text-white font-bold text-sm">🟢 Online</span>
+          </div>
+        </div>
+      )}
+
+      {/* Phrase Chat Bar (Phase 2) — allowlisted phrases only, no free text */}
+      {mpOnline === true && (
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-40">
+          <div className="flex flex-wrap justify-center gap-2 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-2 max-w-2xl">
+            {PHRASES.map((phrase) => (
+              <button
+                key={phrase.id}
+                onClick={() => mpRef.current?.sendPhrase(phrase.id)}
+                className="bg-roblox-blue/80 hover:bg-roblox-blue text-white text-sm font-semibold rounded-full px-3 py-1 transition"
+              >
+                {phrase.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Co-op Boss Panel (Phase 2, Math Jungle) */}
+      {currentWorld === 'math_jungle' && (
+        <div className="absolute bottom-40 right-4 z-40 w-72">
+          <div className="bg-black/75 backdrop-blur-sm rounded-2xl border-4 border-red-400 p-4">
+            <div className="font-display font-bold text-white text-lg mb-2">👹 Jungle Boss</div>
+            {bossVictory ? (
+              <div className="text-yellow-300 font-bold text-lg text-center py-2">
+                🎉 Boss defeated together! 🎉
+              </div>
+            ) : !bossActive ? (
+              <>
+                <div className="text-white/90 text-sm mb-3">
+                  Team up with everyone in the jungle: answer math questions together to defeat the boss!
+                </div>
+                <GameButton
+                  size="sm"
+                  variant="warning"
+                  className="w-full"
+                  onClick={() => mpRef.current?.startBoss()}
+                >
+                  Start Co-op Boss Fight
+                </GameButton>
+                {mpOnline !== true && (
+                  <div className="text-white/60 text-xs mt-2">Boss fights need multiplayer — you're offline.</div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-white font-bold text-sm">Boss HP</span>
+                  <div className="flex-1 bg-white/20 rounded-full h-4 overflow-hidden">
+                    <div
+                      className="bg-red-500 h-full transition-all"
+                      style={{ width: `${bossMaxHp ? (bossHp / bossMaxHp) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className="text-white font-bold text-sm">{bossHp}/{bossMaxHp}</span>
+                </div>
+                {bossQuestion ? (
+                  <>
+                    <div className="text-yellow-300 font-display font-bold text-2xl text-center my-2">
+                      {bossQuestion}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={bossAnswer}
+                        onChange={(e) => setBossAnswer(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitBossAnswer(); }}
+                        className="flex-1 rounded-lg px-3 py-2 text-black font-bold text-lg min-w-0"
+                        placeholder="Answer"
+                      />
+                      <GameButton size="sm" variant="success" onClick={submitBossAnswer}>
+                        Hit!
+                      </GameButton>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-white/80 text-sm mb-2">
+                      The boss fight is on! Join in to get your own question.
+                    </div>
+                    <GameButton
+                      size="sm"
+                      variant="warning"
+                      className="w-full"
+                      onClick={() => mpRef.current?.joinBoss()}
+                    >
+                      Join fight
+                    </GameButton>
+                    {mpOnline !== true && (
+                      <div className="text-white/60 text-xs mt-2">Boss fights need multiplayer — you're offline.</div>
+                    )}
+                  </>
+                )}
+                {bossFeedback && <div className="text-white/90 text-sm mt-2">{bossFeedback}</div>}
+              </>
+            )}
           </div>
         </div>
       )}

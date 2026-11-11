@@ -28,6 +28,13 @@ KidQuest Academy is a production-ready web application that combines the engagin
 - ⏳ Math, Coding, and Science mini-games
 - ⏳ Admin content editor
 
+### Multiplayer (Phase 2)
+- ✅ Colyseus game server (`game-server/`): shared hub + Math Jungle rooms (max 16), age-band instances, party codes (`?party=CODE`)
+- ✅ Presence: remote avatars with name labels, interpolated movement
+- ✅ Phrase chat — fixed kid-safe phrases only, no free text anywhere
+- ✅ Co-op Jungle Boss: shared-HP math fight; rewards awarded server-side by FastAPI
+- 📖 Architecture, env vars, local run (three terminals) and deployment options: [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md)
+
 ---
 
 ## 🛠️ Tech Stack

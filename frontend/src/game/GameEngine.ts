@@ -1,8 +1,10 @@
 import * as BABYLON from '@babylonjs/core';
 import type { GameConfig, GameState, PortalData, WorldKey } from './types';
+import type { RemotePlayerState } from './net/MultiplayerClient';
 import { buildAvatar } from './avatar';
 import { buildHubWorld, buildMathJungleWorld } from './world';
 import { PlayerController } from './playerController';
+import { phraseLabel } from './net/phrases';
 
 export * from './types';
 
@@ -20,6 +22,83 @@ export * from './types';
 // ---------------------------------------------------------------------------
 
 const STATION_TRIGGER_RADIUS = 3.5;
+
+// Phase 2: a remote player's rendered avatar + interpolation target.
+// Remote avatars reuse buildAvatar(); limb animation is name-based
+// (PlayerController uses scene.getMeshByName, which resolves to the LOCAL
+// avatar built first), so remotes get a gentle walk-bob on their root
+// instead of limb swings.
+interface RemoteAvatar {
+  root: BABYLON.TransformNode;
+  target: BABYLON.Vector3;
+  targetRotY: number;
+  phrasePlane: BABYLON.Mesh;
+  phraseTexture: BABYLON.DynamicTexture;
+  phraseId: string;
+  /** Server timestamp (phraseAt) of the last phrase event we displayed.
+   *  Retained after the bubble expires — it is the identity of the event,
+   *  so a stale retained phraseId in state can never replay it. */
+  phraseAt: number;
+  phraseExpiresAt: number;
+  anim: string;
+}
+
+const PHRASE_BUBBLE_MS = 4000;
+
+function drawLabelTexture(
+  texture: BABYLON.DynamicTexture,
+  text: string,
+  fontSize: number
+): void {
+  const ctx = texture.getContext() as unknown as CanvasRenderingContext2D;
+  const { width, height } = texture.getSize();
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.beginPath();
+  ctx.roundRect(2, 2, width - 4, height - 4, 18);
+  ctx.fill();
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, width / 2, height / 2 + 2, width - 24);
+  texture.update();
+}
+
+function makeLabelPlane(
+  scene: BABYLON.Scene,
+  parent: BABYLON.TransformNode,
+  width: number,
+  height: number,
+  y: number,
+  textureWidth: number,
+  textureHeight: number
+): { plane: BABYLON.Mesh; texture: BABYLON.DynamicTexture } {
+  const texture = new BABYLON.DynamicTexture(
+    `label-${Math.random().toString(36).slice(2)}`,
+    { width: textureWidth, height: textureHeight },
+    scene,
+    true
+  );
+  texture.hasAlpha = true;
+  const material = new BABYLON.StandardMaterial(`labelMat-${Math.random().toString(36).slice(2)}`, scene);
+  material.diffuseTexture = texture;
+  material.emissiveTexture = texture;
+  material.disableLighting = true;
+  material.backFaceCulling = false;
+
+  const plane = BABYLON.MeshBuilder.CreatePlane(
+    `labelPlane-${Math.random().toString(36).slice(2)}`,
+    { width, height },
+    scene
+  );
+  plane.material = material;
+  plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  plane.parent = parent;
+  plane.position.y = y;
+  plane.isPickable = false;
+  return { plane, texture };
+}
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -45,6 +124,12 @@ export class GameEngine {
   // Quest station proximity (Math Jungle)
   private stations: { index: number; position: BABYLON.Vector3 }[] = [];
   private currentStationProximity: number | null = null;
+
+  // Phase 2 multiplayer: remote players + local phrase bubble
+  private remotes = new Map<string, RemoteAvatar>();
+  private localPhrasePlane: BABYLON.Mesh | null = null;
+  private localPhraseTexture: BABYLON.DynamicTexture | null = null;
+  private localPhraseExpiresAt = 0;
 
   constructor(config: GameConfig) {
     this.config = config;
@@ -130,6 +215,9 @@ export class GameEngine {
 
     this.currentWorld = key;
     this.gameState = 'HUB';
+    // Remote players belong to the old world's room; the multiplayer client
+    // rejoins for the new world and re-adds whoever is there.
+    this.clearRemotePlayers();
 
     // Respawn the player at the world's entry point
     if (this.playerRoot) {
@@ -248,11 +336,136 @@ export class GameEngine {
     }
   }
 
+  // ------------------------------------------------------- Phase 2: remote
+  /** Local player transform for the multiplayer client to stream. */
+  public getLocalPlayerState(): { x: number; y: number; z: number; rotY: number; anim: string } {
+    const pos = this.playerRoot?.position;
+    return {
+      x: pos?.x ?? 0,
+      y: pos?.y ?? 0,
+      z: pos?.z ?? 0,
+      rotY: this.playerRoot?.rotation.y ?? 0,
+      anim: this.controller?.getIsMoving() ? 'walk' : 'idle',
+    };
+  }
+
+  /** Create a remote player's avatar, or update its interpolation target. */
+  public upsertRemotePlayer(id: string, state: RemotePlayerState): void {
+    let remote = this.remotes.get(id);
+    if (!remote) {
+      const root = new BABYLON.TransformNode(`remote-${id}`, this.scene);
+      root.position = new BABYLON.Vector3(state.x, state.y, state.z);
+      root.rotation.y = state.rotY;
+      buildAvatar(this.scene, root, state.avatar);
+
+      const name = makeLabelPlane(this.scene, root, 1.7, 0.42, 2.35, 512, 128);
+      drawLabelTexture(name.texture, state.displayName, 56);
+
+      const phrase = makeLabelPlane(this.scene, root, 2.4, 0.6, 3.0, 512, 128);
+      phrase.plane.isVisible = false;
+
+      remote = {
+        root,
+        target: root.position.clone(),
+        targetRotY: state.rotY,
+        phrasePlane: phrase.plane,
+        phraseTexture: phrase.texture,
+        phraseId: '',
+        phraseAt: 0,
+        phraseExpiresAt: 0,
+        anim: state.anim,
+      };
+      this.remotes.set(id, remote);
+    }
+
+    remote.target.set(state.x, state.y, state.z);
+    remote.targetRotY = state.rotY;
+    remote.anim = state.anim;
+
+    // A phrase event is identified by its synced phraseAt timestamp, NOT
+    // by phraseId: the server retains the last phraseId indefinitely, so
+    // keying off the ID replays an expired phrase on the next movement
+    // update (and never refreshes a legitimate repeat of the same phrase).
+    // A new phraseAt — even for the same phraseId — is a new event, and
+    // its expiry is computed from phraseAt itself.
+    if (state.phraseId && state.phraseAt && state.phraseAt !== remote.phraseAt) {
+      remote.phraseAt = state.phraseAt;
+      const label = phraseLabel(state.phraseId);
+      const expiresAt = state.phraseAt + PHRASE_BUBBLE_MS;
+      if (label && expiresAt > Date.now()) {
+        drawLabelTexture(remote.phraseTexture, label, 44);
+        remote.phrasePlane.isVisible = true;
+        remote.phraseId = state.phraseId;
+        remote.phraseExpiresAt = expiresAt;
+      } else {
+        // Already expired by the time we first saw it (e.g. joining a
+        // room where a phrase is still retained in state): never show it.
+        remote.phrasePlane.isVisible = false;
+        remote.phraseId = state.phraseId;
+        remote.phraseExpiresAt = expiresAt;
+      }
+    }
+  }
+
+  public removeRemotePlayer(id: string): void {
+    const remote = this.remotes.get(id);
+    if (!remote) return;
+    remote.phraseTexture.dispose();
+    remote.root.dispose(false);
+    this.remotes.delete(id);
+  }
+
+  public clearRemotePlayers(): void {
+    for (const id of [...this.remotes.keys()]) {
+      this.removeRemotePlayer(id);
+    }
+  }
+
+  /** Show a phrase bubble above the local player (own phrase echo). */
+  public showLocalPhrase(text: string): void {
+    if (!this.playerRoot || !text) return;
+    if (!this.localPhrasePlane) {
+      const made = makeLabelPlane(this.scene, this.playerRoot, 2.4, 0.6, 3.0, 512, 128);
+      this.localPhrasePlane = made.plane;
+      this.localPhraseTexture = made.texture;
+    }
+    drawLabelTexture(this.localPhraseTexture!, text, 44);
+    this.localPhrasePlane.isVisible = true;
+    this.localPhraseExpiresAt = Date.now() + PHRASE_BUBBLE_MS;
+  }
+
+  /** Interpolate remote avatars toward their latest synced positions. */
+  private updateRemotes(): void {
+    const now = Date.now();
+    for (const remote of this.remotes.values()) {
+      remote.root.position = BABYLON.Vector3.Lerp(remote.root.position, remote.target, 0.25);
+      // Gentle bob while "walking" (limb animation is name-bound to local).
+      if (remote.anim === 'walk') {
+        remote.root.position.y = remote.target.y + Math.abs(Math.sin(now / 130)) * 0.06;
+      }
+      let delta = remote.targetRotY - remote.root.rotation.y;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      remote.root.rotation.y += delta * 0.3;
+
+      if (remote.phrasePlane.isVisible && now > remote.phraseExpiresAt) {
+        remote.phrasePlane.isVisible = false;
+        remote.phraseId = '';
+        // remote.phraseAt is deliberately NOT cleared: it marks this
+        // phrase event as seen, so the retained state value cannot
+        // re-display it on the next movement update.
+      }
+    }
+    if (this.localPhrasePlane?.isVisible && now > this.localPhraseExpiresAt) {
+      this.localPhrasePlane.isVisible = false;
+    }
+  }
+
   private startRenderLoop(): void {
     this.engine.runRenderLoop(() => {
       this.controller?.update();
       this.checkPortalProximity();
       this.checkStationProximity();
+      this.updateRemotes();
       this.scene.render();
     });
 
