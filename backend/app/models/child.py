@@ -8,6 +8,9 @@ class AvatarCustomization(BaseModel):
     hair_style: str = "short"
     hair_color: str = "brown"
     outfit: str = "casual_blue"
+    # Colour chosen independently of the outfit style (blue/red/green/
+    # purple/orange/pink/yellow/teal). Rendered by the game client.
+    outfit_color: str = "blue"
     accessory: Optional[str] = None
 
 class ChildProfileBase(BaseModel):
