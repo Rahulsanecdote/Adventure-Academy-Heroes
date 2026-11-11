@@ -134,6 +134,39 @@ export interface RewardCeremony {
   total_coins: number;
 }
 
+// Phase 1: server-validated Math Challenge
+export interface ChallengeQuestion {
+  prompt: string;
+  operation: string;
+}
+
+export interface ChallengeStart {
+  challenge_id: string;
+  quest_id: string;
+  total_questions: number;
+  questions: ChallengeQuestion[];
+}
+
+export interface ChallengeResult {
+  challenge_id: string;
+  quest_id: string;
+  correct_count: number;
+  total_questions: number;
+  passed: boolean;
+  already_completed?: boolean;
+  reward?: RewardCeremony | null;
+}
+
+export interface SkillEvidence {
+  quest_id: string;
+  quest_title: string;
+  attempts: number;
+  total_questions: number;
+  total_correct: number;
+  last_played?: string;
+  passed: boolean;
+}
+
 export interface ChildStats {
   child_id: string;
   total_xp: number;
