@@ -17,6 +17,9 @@ progress_collection = db.progress
 cosmetics_collection = db.cosmetics
 inventory_collection = db.inventory
 rewards_collection = db.rewards
+# Phase 1: server-validated math challenges
+challenges_collection = db.challenge_sessions
+attempts_collection = db.challenge_attempts
 
 def get_database():
     return db
