@@ -46,3 +46,21 @@ class SkillEvidence(BaseModel):
     total_correct: int
     last_played: Optional[datetime] = None
     passed: bool = False
+
+
+class SkillEvidenceReport(BaseModel):
+    """The parent skill-evidence report (Phase 1, extended in Phase 3).
+
+    `quests` is the original per-quest Math Challenge evidence; `techniques`
+    adds the Trick Academy arc per technique (Dare -> Boss Gate -> teach-back
+    -> Encore retention). The endpoint used to return a bare list of
+    SkillEvidence; it now returns this wrapper — the frontend was updated in
+    the same change.
+    """
+    quests: List[SkillEvidence]
+    techniques: List["TechniqueEvidence"] = []
+
+
+from app.models.trick import TechniqueEvidence  # noqa: E402  (report field type)
+
+SkillEvidenceReport.model_rebuild()

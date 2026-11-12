@@ -11,7 +11,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { Loading } from '../components/ui/Loading';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import type { ChildProfile, ChildStats, AvatarCustomization, SkillEvidence } from '../types';
+import type { ChildProfile, ChildStats, AvatarCustomization, SkillEvidence, TechniqueEvidence } from '../types';
 import { LogOut, Plus, TrendingUp, Award, Star } from 'lucide-react';
 
 export const ParentDashboard: React.FC = () => {
@@ -26,6 +26,7 @@ export const ParentDashboard: React.FC = () => {
   const [showEditAvatar, setShowEditAvatar] = useState(false);
   const [editAvatar, setEditAvatar] = useState<AvatarCustomization>(DEFAULT_AVATAR);
   const [evidence, setEvidence] = useState<SkillEvidence[]>([]);
+  const [techniqueEvidence, setTechniqueEvidence] = useState<TechniqueEvidence[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,11 +44,14 @@ export const ParentDashboard: React.FC = () => {
     }
   }, [selectedChild]);
 
-  // Phase 1: per-quest skill evidence from the server-validated Math Challenge
+  // Phase 1: per-quest skill evidence from the server-validated Math Challenge.
+  // Phase 3: the endpoint now returns a report — quest evidence plus the
+  // Trick Academy technique arcs.
   const loadSkillEvidence = async (childId: string) => {
     try {
       const data = await challengesAPI.getEvidence(childId);
-      setEvidence(data);
+      setEvidence(data.quests);
+      setTechniqueEvidence(data.techniques);
     } catch (error) {
       console.error('Failed to load skill evidence:', error);
     }
@@ -297,6 +301,94 @@ export const ParentDashboard: React.FC = () => {
                         {ev.passed ? 'PASSED' : 'IN PROGRESS'}
                       </div>
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </GameCard>
+
+        {/* Trick Academy Evidence (Phase 3: the Encore & Exhibit arc) */}
+        <GameCard className="mb-8">
+          <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">
+            🎓 Trick Academy — Technique Mastery
+          </h2>
+          {techniqueEvidence.every((t) => !t.mastered && t.attempts === 0 && !t.dare?.attempted) ? (
+            <p className="text-gray-600 text-lg">
+              No Trick Academy progress yet. {selectedChild.username} can enter the
+              Academy from the hub — each technique runs Dare → Reveal → Why Lab →
+              Side-by-Side → Remix → Boss Gate, then teach-back and spaced Encore
+              re-tests at +1/+3/+7 days.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {techniqueEvidence.map((t) => (
+                <div
+                  key={t.technique_id}
+                  className="bg-purple-50 border-4 border-purple-200 rounded-2xl p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <div className="font-display font-bold text-xl text-gray-800">
+                        {t.icon} {t.technique_name}
+                      </div>
+                      <div className="text-gray-600 text-sm">
+                        {t.mastered
+                          ? `Mastered ${t.mastered_at ? new Date(t.mastered_at).toLocaleDateString() : ''}`
+                          : t.last_played
+                            ? `Last played ${new Date(t.last_played).toLocaleDateString()}`
+                            : 'Not started'}
+                      </div>
+                    </div>
+                    <div className="flex gap-6 text-center">
+                      <div>
+                        <div className="text-2xl font-game text-gray-800">
+                          {t.best_total > 0 ? `${t.best_correct}/${t.best_total}` : '—'}
+                        </div>
+                        <div className="text-xs text-gray-500 font-semibold">BEST BOSS RUN</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl">{t.mastered ? '🏆' : '⏳'}</div>
+                        <div className="text-xs text-gray-500 font-semibold">
+                          {t.mastered ? 'MASTERED' : 'IN PROGRESS'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3 text-sm font-semibold">
+                    <span className={`px-3 py-1 rounded-full ${t.dare?.attempted ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-400'}`}>
+                      🎯 Dare: {t.dare?.attempted
+                        ? t.dare.answer_correct
+                          ? 'solved cold!'
+                          : 'attempted cold'
+                        : 'not yet'}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full ${t.teach_back.completed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-400'}`}>
+                      🎤 Teach-back: {t.teach_back.completed
+                        ? 'completed'
+                        : t.teach_back.attempts > 0
+                          ? `in progress (${t.teach_back.attempts} tries)`
+                          : 'not yet'}
+                    </span>
+                    {t.encores.map((encore) => (
+                      <span
+                        key={encore.offset_days}
+                        className={`px-3 py-1 rounded-full ${
+                          encore.status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : encore.status === 'struggling'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        🔁 +{encore.offset_days}d Encore:{' '}
+                        {encore.status === 'completed'
+                          ? `${encore.correct_count}/${encore.total_questions} ✔`
+                          : encore.status === 'struggling'
+                            ? 'needs a Remix revisit'
+                            : encore.status}
+                      </span>
+                    ))}
                   </div>
                 </div>
               ))}
