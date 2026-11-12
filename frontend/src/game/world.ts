@@ -233,6 +233,9 @@ export function buildHubWorld(scene: BABYLON.Scene, callbacks: WorldCallbacks): 
     { name: 'Math Jungle', worldKey: 'math_jungle', position: new BABYLON.Vector3(-15, 0, 0), color: new BABYLON.Color3(0.2, 0.9, 0.3) },
     { name: 'Code City', worldKey: 'code_city', position: new BABYLON.Vector3(0, 0, -15), color: new BABYLON.Color3(0.2, 0.6, 1) },
     { name: 'Science Spaceport', worldKey: 'science_spaceport', position: new BABYLON.Vector3(15, 0, 0), color: new BABYLON.Color3(0.7, 0.3, 1) },
+    // Phase 3: Trick Academy — a full-screen 2D area (not a Babylon world);
+    // GamePage intercepts this portal before any quest lookup.
+    { name: 'Trick Academy', worldKey: 'trick_academy', position: new BABYLON.Vector3(0, 0, 15), color: new BABYLON.Color3(0.96, 0.62, 0.04) },
   ];
 
   portalDefs.forEach((def) => {

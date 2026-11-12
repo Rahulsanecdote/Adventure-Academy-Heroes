@@ -13,6 +13,7 @@ import uuid
 from app.models.challenge import (
     ChallengeStartRequest, ChallengeStartResponse, ChallengeQuestionPublic,
     ChallengeSubmitRequest, ChallengeSubmitResponse, SkillEvidence,
+    SkillEvidenceReport,
 )
 from app.models.progress import StepProgress
 from app.models.user import TokenData
@@ -167,7 +168,7 @@ async def submit_challenge(
     )
 
 
-@router.get("/child/{child_id}/evidence", response_model=List[SkillEvidence])
+@router.get("/child/{child_id}/evidence", response_model=SkillEvidenceReport)
 async def get_skill_evidence(child_id: str, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
 
@@ -198,4 +199,10 @@ async def get_skill_evidence(child_id: str, current_user: TokenData = Depends(ge
         ))
 
     evidence.sort(key=lambda e: e.last_played or datetime.min, reverse=True)
-    return evidence
+
+    # Phase 3: fold in the Trick Academy arc (Dare -> Boss Gate -> teach-back
+    # -> Encore retention) alongside the quest evidence.
+    from app.routers.trick_academy import build_technique_evidence
+    techniques = build_technique_evidence(child_id)
+
+    return SkillEvidenceReport(quests=evidence, techniques=techniques)

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { childrenAPI, questsAPI } from '../services/api';
 import { HubWorld } from '../components/game/HubWorld';
 import { QuestRunner } from '../components/quest/QuestRunner';
+import TrickAcademy from '../components/trick/TrickAcademy';
 import { Loading } from '../components/ui/Loading';
 import { GameButton } from '../components/ui/GameButton';
 import type { ChildProfile, Quest, QuestWithProgress, RewardCeremony } from '../types';
@@ -12,7 +13,7 @@ import type { PortalData } from '../game/GameEngine';
 const ACTIVE_CHILD_KEY = 'activeChildId';
 
 // Clean Game State Machine
-type GameState = 'HUB' | 'QUEST' | 'REWARD';
+type GameState = 'HUB' | 'QUEST' | 'REWARD' | 'ACADEMY';
 
 interface GamePageState {
   gameState: GameState;
@@ -133,6 +134,12 @@ export const GamePage: React.FC = () => {
 
   // Handle portal entry - find quest for this world
   const handlePortalEnter = useCallback((portal: PortalData) => {
+    // Phase 3: the Trick Academy portal opens its own full-screen area —
+    // it is not a quest world, so intercept before the quest lookup.
+    if (portal.worldKey === 'trick_academy') {
+      setState(prev => ({ ...prev, gameState: 'ACADEMY' }));
+      return;
+    }
     const quest = availableQuests.find(q => 
       q.world === portal.worldKey && !q.is_completed && !q.is_locked
     );
@@ -193,6 +200,20 @@ export const GamePage: React.FC = () => {
     });
   }, []);
 
+  // Phase 3: leave the Trick Academy — reload profile/quests first because
+  // Boss Gate rewards change XP/coins/level.
+  const handleExitAcademy = useCallback(async () => {
+    if (resolvedChildId) {
+      await loadChildAndQuests(resolvedChildId);
+    }
+    setState({
+      gameState: 'HUB',
+      activeQuestId: null,
+      questData: null,
+      pendingReward: null,
+    });
+  }, [resolvedChildId]);
+
   // Exit game entirely
   const handleExitGame = useCallback(() => {
     navigate('/parent/dashboard');
@@ -249,13 +270,26 @@ export const GamePage: React.FC = () => {
     );
   }
 
+  // ACADEMY state (Phase 3) - render the Trick Academy full-screen area
+  if (state.gameState === 'ACADEMY') {
+    return (
+      <TrickAcademy
+        childProfile={childProfile}
+        onExit={handleExitAcademy}
+      />
+    );
+  }
+
   // HUB state - render 3D world
   return (
     <div className="relative">
       {/* Exit Button */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50 flex flex-col gap-2 items-end">
         <GameButton variant="danger" size="sm" onClick={handleExitGame}>
           Exit Game
+        </GameButton>
+        <GameButton variant="purple" size="sm" onClick={() => setState(prev => ({ ...prev, gameState: 'ACADEMY' }))}>
+          🎓 Trick Academy
         </GameButton>
       </div>
 

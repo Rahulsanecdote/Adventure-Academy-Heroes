@@ -12,7 +12,22 @@ import type {
   AvatarCustomization,
   ChallengeStart,
   ChallengeResult,
-  SkillEvidence
+  SkillEvidenceReport,
+  TrickTechnique,
+  TrickSessionStart,
+  TrickDareResult,
+  TrickProblem,
+  TrickMimicResult,
+  TrickWhyLab,
+  TrickRep,
+  TrickRepResult,
+  TrickRemixStart,
+  TrickSetResult,
+  TrickBossStart,
+  TrickBossResult,
+  TrickTeachBack,
+  TrickTeachBackResult,
+  TrickEncore
 } from '../types';
 
 // API URL resolution strategy:
@@ -240,8 +255,139 @@ export const challengesAPI = {
     return response.data;
   },
 
-  getEvidence: async (childId: string): Promise<SkillEvidence[]> => {
-    const response = await api.get<SkillEvidence[]>(`/api/challenges/child/${childId}/evidence`);
+  getEvidence: async (childId: string): Promise<SkillEvidenceReport> => {
+    const response = await api.get<SkillEvidenceReport>(`/api/challenges/child/${childId}/evidence`);
+    return response.data;
+  },
+};
+
+// Trick Academy APIs (Phase 3: The Trick Academy Ascent — 7 stages)
+export const trickAcademyAPI = {
+  listTechniques: async (childId: string): Promise<TrickTechnique[]> => {
+    const response = await api.get<TrickTechnique[]>('/api/trick-academy/techniques', {
+      params: { child_id: childId },
+    });
+    return response.data;
+  },
+
+  startSession: async (childId: string, techniqueId: string): Promise<TrickSessionStart> => {
+    const response = await api.post<TrickSessionStart>('/api/trick-academy/sessions', {
+      child_id: childId,
+      technique_id: techniqueId,
+    });
+    return response.data;
+  },
+
+  submitDare: async (sessionId: string, answer: number, prediction: number): Promise<TrickDareResult> => {
+    const response = await api.post<TrickDareResult>(`/api/trick-academy/sessions/${sessionId}/dare`, {
+      answer,
+      prediction,
+    });
+    return response.data;
+  },
+
+  startMimic: async (sessionId: string): Promise<{ problem: TrickProblem }> => {
+    const response = await api.post<{ problem: TrickProblem }>(
+      `/api/trick-academy/sessions/${sessionId}/reveal/mimic`, {}
+    );
+    return response.data;
+  },
+
+  submitMimic: async (sessionId: string, stepAnswers: number[]): Promise<TrickMimicResult> => {
+    const response = await api.post<TrickMimicResult>(
+      `/api/trick-academy/sessions/${sessionId}/reveal/mimic/submit`,
+      { step_answers: stepAnswers }
+    );
+    return response.data;
+  },
+
+  getWhyLab: async (sessionId: string): Promise<TrickWhyLab> => {
+    const response = await api.get<TrickWhyLab>(`/api/trick-academy/sessions/${sessionId}/why`);
+    return response.data;
+  },
+
+  submitProbe: async (sessionId: string, values: number[]): Promise<{ correct: boolean; hint?: string | null; stage: string }> => {
+    const response = await api.post(`/api/trick-academy/sessions/${sessionId}/why/submit`, { values });
+    return response.data;
+  },
+
+  nextRep: async (sessionId: string, wantDemo = false): Promise<TrickRep> => {
+    const response = await api.post<TrickRep>(`/api/trick-academy/sessions/${sessionId}/side-by-side/next`, {
+      want_demo: wantDemo,
+    });
+    return response.data;
+  },
+
+  submitRep: async (
+    sessionId: string,
+    repId: string,
+    payload: { step_answers?: number[]; answer?: number }
+  ): Promise<TrickRepResult> => {
+    const response = await api.post<TrickRepResult>(
+      `/api/trick-academy/sessions/${sessionId}/side-by-side/submit`,
+      { rep_id: repId, ...payload }
+    );
+    return response.data;
+  },
+
+  startRemix: async (sessionId: string): Promise<TrickRemixStart> => {
+    const response = await api.post<TrickRemixStart>(`/api/trick-academy/sessions/${sessionId}/remix/start`, {});
+    return response.data;
+  },
+
+  submitRemix: async (sessionId: string, answers: number[]): Promise<TrickSetResult> => {
+    const response = await api.post<TrickSetResult>(`/api/trick-academy/sessions/${sessionId}/remix/submit`, {
+      answers,
+    });
+    return response.data;
+  },
+
+  startBoss: async (sessionId: string): Promise<TrickBossStart> => {
+    const response = await api.post<TrickBossStart>(`/api/trick-academy/sessions/${sessionId}/boss/start`, {});
+    return response.data;
+  },
+
+  submitBoss: async (sessionId: string, answers: number[]): Promise<TrickBossResult> => {
+    const response = await api.post<TrickBossResult>(`/api/trick-academy/sessions/${sessionId}/boss/submit`, {
+      answers,
+    });
+    return response.data;
+  },
+
+  getTeachBack: async (childId: string, techniqueId: string): Promise<TrickTeachBack> => {
+    const response = await api.get<TrickTeachBack>(
+      `/api/trick-academy/child/${childId}/teach-back/${techniqueId}`
+    );
+    return response.data;
+  },
+
+  submitTeachBack: async (
+    childId: string,
+    techniqueId: string,
+    order: string[],
+    whyIndex: number
+  ): Promise<TrickTeachBackResult> => {
+    const response = await api.post<TrickTeachBackResult>('/api/trick-academy/teach-back/submit', {
+      child_id: childId,
+      technique_id: techniqueId,
+      order,
+      why_index: whyIndex,
+    });
+    return response.data;
+  },
+
+  listEncores: async (childId: string): Promise<TrickEncore[]> => {
+    const response = await api.get<TrickEncore[]>(`/api/trick-academy/child/${childId}/encores`);
+    return response.data;
+  },
+
+  startEncore: async (encoreId: string): Promise<{ encore_id: string; problems: TrickProblem[]; total_questions: number }> => {
+    const response = await api.post(`/api/trick-academy/encores/${encoreId}/start`, {});
+    return response.data;
+  },
+
+  submitEncore: async (encoreId: string, answers: number[]): Promise<{ correct_count: number; total_questions: number; passed: boolean; status: string }> => {
+    const response = await api.post(`/api/trick-academy/encores/${encoreId}/submit`, { answers });
     return response.data;
   },
 };

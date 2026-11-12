@@ -159,6 +159,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       'math_jungle': '🌴',
       'code_city': '🏙️',
       'science_spaceport': '🚀',
+      'trick_academy': '🎓',
     };
     return emojis[worldKey] || '🌟';
   };

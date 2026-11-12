@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import admin, auth, challenges, children, multiplayer, progress, quests
+from app.routers import admin, auth, challenges, children, multiplayer, progress, quests, trick_academy
 
 app = FastAPI(
     title=settings.app_name,
@@ -29,6 +29,7 @@ app.include_router(children.router)
 app.include_router(quests.router)
 app.include_router(progress.router)
 app.include_router(challenges.router)
+app.include_router(trick_academy.router)
 app.include_router(multiplayer.router)
 app.include_router(admin.router)
 
