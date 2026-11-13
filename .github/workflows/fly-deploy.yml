@@ -1,0 +1,71 @@
+name: Deploy to Fly.io
+
+# Manual only — merging to main never auto-deploys.
+# Run from the Actions tab ("Run workflow") once the FLY_API_TOKEN
+# repository secret is set (Settings → Secrets and variables → Actions).
+#
+# First deploy: target = all, seed = true.
+# The seed creates the admin user (only if missing) plus the starter
+# quests/cosmetics. It inserts new quests/cosmetics on every run, so
+# leave seed = false for every deploy after the first.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "What to deploy"
+        type: choice
+        options:
+          - all
+          - game
+          - web
+        default: all
+      seed:
+        description: "Run the database seed after the web deploy (FIRST DEPLOY ONLY)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy game server (kidquest-game)
+        if: inputs.target == 'all' || inputs.target == 'game'
+        run: flyctl deploy --remote-only --app kidquest-game --config fly.toml
+
+      - name: Deploy web app (kidquest-web)
+        if: inputs.target == 'all' || inputs.target == 'web'
+        run: flyctl deploy --remote-only --app kidquest-web --config fly.web.toml --dockerfile Dockerfile.web
+
+      - name: Seed database (first deploy only)
+        if: inputs.seed == true && (inputs.target == 'all' || inputs.target == 'web')
+        run: flyctl ssh console --app kidquest-web -C "sh -c 'cd /app/backend && python -m app.seed_data'"
+
+      - name: Smoke test — game health
+        if: inputs.target == 'all' || inputs.target == 'game'
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fs https://kidquest-game.fly.dev/health; then exit 0; fi
+            sleep 15
+          done
+          echo "kidquest-game /health did not pass in time" >&2
+          exit 1
+
+      - name: Smoke test — web health
+        if: inputs.target == 'all' || inputs.target == 'web'
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fs https://kidquest-web.fly.dev/api/health; then exit 0; fi
+            sleep 15
+          done
+          echo "kidquest-web /api/health did not pass in time" >&2
+          exit 1
