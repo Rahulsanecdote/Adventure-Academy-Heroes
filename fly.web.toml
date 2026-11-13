@@ -1,0 +1,27 @@
+# KidQuest web app (FastAPI + built frontend, single port 8001).
+# Deploy with: flyctl deploy --config fly.web.toml --dockerfile Dockerfile.web --app kidquest-web
+app = "kidquest-web"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile.web"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8001
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
