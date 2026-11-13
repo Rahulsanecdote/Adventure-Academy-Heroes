@@ -1,0 +1,39 @@
+# KidQuest game server (Colyseus, Phase 2 multiplayer).
+# Build context is the repo root — game-server/Dockerfile expects it
+# (it also copies frontend/src/game/net/phrases.json).
+app = "kidquest-game"
+primary_region = "ewr"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "game-server/Dockerfile"
+
+[env]
+  PORT = "2567"
+  FASTAPI_URL = "https://kidquest-web.fly.dev"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 2567
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
