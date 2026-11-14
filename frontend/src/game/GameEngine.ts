@@ -235,6 +235,18 @@ export class GameEngine {
     return this.currentWorld;
   }
 
+  /** Run the interact action — the same path as the E key: activate the
+   *  portal in range, or start the quest station in range. Exposed so the
+   *  React HUD can offer it as a tappable prompt on touch devices (phones
+   *  and tablets have no E key). */
+  public interact(): void {
+    if (this.currentPortalProximity) {
+      this.activatePortal(this.currentPortalProximity);
+    } else if (this.currentStationProximity !== null) {
+      this.config.onQuestStation?.(this.currentStationProximity);
+    }
+  }
+
   /** Portal activation routing: in-engine world portals switch scenes;
    *  world-select portals keep the existing React quest flow. */
   private activatePortal(portal: PortalData): void {
@@ -263,13 +275,7 @@ export class GameEngine {
     this.avatarMeshes.push(...buildAvatar(this.scene, this.playerRoot, this.config.childProfile.avatar));
 
     this.controller = new PlayerController(this.scene, this.playerRoot, () => this.camera, {
-      onInteractKey: () => {
-        if (this.currentPortalProximity) {
-          this.activatePortal(this.currentPortalProximity);
-        } else if (this.currentStationProximity !== null) {
-          this.config.onQuestStation?.(this.currentStationProximity);
-        }
-      },
+      onInteractKey: () => this.interact(),
     });
   }
 

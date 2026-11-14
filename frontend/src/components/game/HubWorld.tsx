@@ -7,6 +7,12 @@ import { ChildProfile } from '../../types';
 import { GameButton } from '../ui/GameButton';
 import { Modal } from '../ui/Modal';
 
+/** True on phones/tablets (coarse pointer, no keyboard). */
+const isTouchDevice = (): boolean =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches;
+
 interface HubWorldProps {
   childProfile: ChildProfile;
   onPortalEnter?: (portal: PortalData) => void;
@@ -34,11 +40,15 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
   const [showNPCDialog, setShowNPCDialog] = useState(false);
   const [npcMessage, setNpcMessage] = useState('');
   const [npcName, setNpcName] = useState('');
-  // Mobile HUD: on small screens the controls card starts closed (it can be
-  // reopened anytime with the 🎮 Controls button). On desktop it starts open
-  // and auto-hides via the timer in the engine effect below.
+  // HUD input mode: touch devices (phones/tablets) get touch wording,
+  // tappable prompts, and a controls card that starts closed at any size.
+  const [touchUI] = useState(isTouchDevice);
+
+  // The controls card starts open only for keyboard/mouse desktops (it
+  // auto-hides there via the timer in the engine effect below). Everywhere
+  // else it starts closed; the 🎮 Controls button opens it.
   const [showControls, setShowControls] = useState(
-    () => typeof window === 'undefined' || window.innerWidth >= 640
+    () => typeof window === 'undefined' || (window.innerWidth >= 640 && !isTouchDevice())
   );
   
   // Portal proximity state
@@ -51,14 +61,16 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
   const handleNPCClick = useCallback((npcId: string) => {
     const messages: { [key: string]: string } = {
-      'Guide': `Welcome to KidQuest Academy, ${childProfile.username}! Walk up to the glowing portals to start your learning adventures. Use WASD keys to move around, and press E when near a portal!`,
+      'Guide': touchUI
+        ? `Welcome to KidQuest Academy, ${childProfile.username}! Tap the ground to walk up to the glowing portals, then tap the prompt to step inside!`
+        : `Welcome to KidQuest Academy, ${childProfile.username}! Walk up to the glowing portals to start your learning adventures. Use WASD keys to move around, and press E when near a portal!`,
       'Shop Keeper': `Hey there! You have ${childProfile.coins} coins. Come back when we open the shop to buy cool cosmetics for your avatar!`,
       'Miko': `Welcome to the Math Jungle, ${childProfile.username}! Find the glowing number totems and press E to start a quest. Finish the steps, then beat the Math Challenge to earn your rewards!`,
     };
     setNpcName(npcId);
     setNpcMessage(messages[npcId] || 'Hello there!');
     setShowNPCDialog(true);
-  }, [childProfile]);
+  }, [childProfile, touchUI]);
 
   const handlePortalProximity = useCallback((portal: PortalData | null) => {
     setNearPortal(portal);
@@ -131,9 +143,9 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
     });
     mp.connect(engine, 'hub').then((ok) => setMpOnline(ok));
 
-    // Hide controls help after 5 seconds (desktop only — on mobile the card
-    // starts closed, and a manually opened card must not vanish mid-read)
-    const timer = window.innerWidth >= 640
+    // Hide controls help after 5 seconds (keyboard desktops only — elsewhere
+    // the card starts closed, and a manually opened card must not vanish)
+    const timer = window.innerWidth >= 640 && !isTouchDevice()
       ? setTimeout(() => setShowControls(false), 5000)
       : undefined;
 
@@ -218,18 +230,30 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
             )}
           </div>
 
-          {/* Controls Help — drops to a full-width row under the top bar on
-              mobile (clear of the Exit / Trick Academy buttons); side card on desktop */}
+          {/* Controls Help — on phones it drops to a full-width row under the
+              top bar; on larger screens it anchors under the Exit / Trick
+              Academy buttons (top-right), never on top of them */}
           {showControls && (
-            <div className="order-3 sm:order-none w-full sm:w-auto mt-14 sm:mt-0 bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-white p-3 sm:p-4 pointer-events-auto animate-fade-in">
+            <div className="max-sm:order-3 max-sm:w-full max-sm:mt-14 sm:absolute sm:top-[6.5rem] sm:right-0 sm:w-72 bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-white p-3 sm:p-4 pointer-events-auto animate-fade-in">
               <div className="font-display font-bold text-white text-base sm:text-lg mb-2">🎮 Controls</div>
               <div className="space-y-1 text-xs sm:text-sm text-white/90">
-                <div><strong>WASD</strong> - Move around</div>
-                <div><strong>Click ground</strong> - Walk there</div>
-                <div><strong>Space</strong> - Jump</div>
-                <div><strong>Mouse</strong> - Rotate camera</div>
-                <div><strong>Click</strong> - Interact with NPCs</div>
-                <div><strong>E</strong> - Enter portal (when near)</div>
+                {touchUI ? (
+                  <>
+                    <div><strong>Tap ground</strong> - Walk there</div>
+                    <div><strong>Drag</strong> - Look around</div>
+                    <div><strong>Tap people</strong> - Talk to them</div>
+                    <div><strong>Tap the prompt</strong> - Enter portals &amp; start quests</div>
+                  </>
+                ) : (
+                  <>
+                    <div><strong>WASD</strong> - Move around</div>
+                    <div><strong>Click ground</strong> - Walk there</div>
+                    <div><strong>Space</strong> - Jump</div>
+                    <div><strong>Mouse</strong> - Rotate camera</div>
+                    <div><strong>Click</strong> - Interact with NPCs</div>
+                    <div><strong>E</strong> - Enter portal (when near)</div>
+                  </>
+                )}
               </div>
               <button
                 onClick={() => setShowControls(false)}
@@ -373,27 +397,45 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       {/* Quest Station Proximity Prompt (Phase 1) */}
       {nearStation !== null && currentWorld === 'math_jungle' && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 animate-bounce">
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-4 text-center max-w-[calc(100vw-2rem)]">
+          <button
+            type="button"
+            onClick={() => engineRef.current?.interact()}
+            aria-label={`Start quest at totem ${nearStation + 1}`}
+            className="block bg-black/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-4 text-center max-w-[calc(100vw-2rem)] cursor-pointer"
+          >
             <div className="text-3xl mb-2">🔢</div>
             <div className="text-white font-bold text-lg">Quest Totem {nearStation + 1}</div>
             <div className="text-yellow-400 font-semibold mt-2 animate-pulse">
-              Press <span className="bg-yellow-500 text-black px-2 py-1 rounded font-bold">E</span> to Start Quest
+              {touchUI ? (
+                <>👆 Tap to Start Quest</>
+              ) : (
+                <>Press <span className="bg-yellow-500 text-black px-2 py-1 rounded font-bold">E</span> to Start Quest</>
+              )}
             </div>
-          </div>
+          </button>
         </div>
       )}
 
       {/* Portal Proximity Prompt - floating above player */}
       {nearPortal && !showPortalConfirm && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 animate-bounce">
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 px-6 py-4 text-center max-w-[calc(100vw-2rem)]"
-               style={{ borderColor: `rgb(${nearPortal.color.r * 255}, ${nearPortal.color.g * 255}, ${nearPortal.color.b * 255})` }}>
+          <button
+            type="button"
+            onClick={() => engineRef.current?.interact()}
+            aria-label={`Enter ${nearPortal.name}`}
+            className="block bg-black/80 backdrop-blur-sm rounded-2xl border-4 px-6 py-4 text-center max-w-[calc(100vw-2rem)] cursor-pointer"
+            style={{ borderColor: `rgb(${nearPortal.color.r * 255}, ${nearPortal.color.g * 255}, ${nearPortal.color.b * 255})` }}
+          >
             <div className="text-3xl mb-2">{getPortalEmoji(nearPortal.worldKey)}</div>
             <div className="text-white font-bold text-lg">{nearPortal.name}</div>
             <div className="text-yellow-400 font-semibold mt-2 animate-pulse">
-              Press <span className="bg-yellow-500 text-black px-2 py-1 rounded font-bold">E</span> to Enter
+              {touchUI ? (
+                <>👆 Tap to Enter</>
+              ) : (
+                <>Press <span className="bg-yellow-500 text-black px-2 py-1 rounded font-bold">E</span> to Enter</>
+              )}
             </div>
-          </div>
+          </button>
         </div>
       )}
 
