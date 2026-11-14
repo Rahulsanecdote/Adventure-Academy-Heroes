@@ -2,26 +2,45 @@ import * as BABYLON from '@babylonjs/core';
 
 // ---------------------------------------------------------------------------
 // Third-person player controller: WASD / arrow-key movement relative to the
-// follow camera, space to jump, E to interact, plus tap-to-move targets set
-// from pointer picks (touch support). Limb swing / idle breathing animation
-// is driven from here by mesh name, as in the original GameEngine.
+// follow camera, space to jump, E to interact, tap-to-move targets from
+// pointer picks, and an analog virtual joystick (touch devices).
+//
+// Motion is REAL physics now:
+// - All speeds are per-second and scaled by the frame's delta time, so the
+//   character moves at the same speed on a 120 Hz phone, a 60 Hz laptop and
+//   a struggling 30 fps tablet. (Previously every constant was per-frame,
+//   so a 120 Hz phone ran the character at double speed.)
+// - Horizontal displacement goes through Babylon's collision system
+//   (collider.moveWithCollisions), so the character actually stops at
+//   trees, NPCs and totems instead of walking through them. (Previously
+//   position.addInPlace bypassed collisions entirely — the colliders the
+//   engine created were never used.)
+// - Turning is smoothed (shortest-arc lerp) instead of snapping.
 // ---------------------------------------------------------------------------
 
 export interface PlayerControllerCallbacks {
   onInteractKey?: () => void;
 }
 
+// Per-second equivalents of the old per-frame constants (tuned at 60 fps):
+const WALK_SPEED = 9; // units/sec   (was 0.15/frame)
+const JUMP_VELOCITY = 15; // units/sec (was 0.25/frame)
+const GRAVITY = -54; // units/sec^2    (was -0.015/frame^2)
+const WALK_CYCLE_RATE = 9; // rad/sec    (was 0.15/frame)
+const TURN_RATE = 14; // smoothing rate for facing turns
+const JOYSTICK_DEADZONE = 0.15;
+const COLLIDER_Y_OFFSET = 0.95; // capsule centre above the player's feet
+
 export class PlayerController {
   private scene: BABYLON.Scene;
   private playerRoot: BABYLON.TransformNode;
+  private collider: BABYLON.Mesh;
   private getCamera: () => BABYLON.FollowCamera | null;
   private callbacks: PlayerControllerCallbacks;
 
   private keys: { [key: string]: boolean } = {};
-  private playerSpeed = 0.15;
   private isJumping = false;
   private jumpVelocity = 0;
-  private gravity = -0.015;
   private groundLevel = 0;
   private bounds = 28;
 
@@ -32,17 +51,23 @@ export class PlayerController {
   // Tap-to-move target (set by pointer picking in the engine)
   private moveTarget: BABYLON.Vector3 | null = null;
 
+  // Virtual joystick input (touch): x = strafe (-1..1), y = forward (-1..1)
+  private joystickX = 0;
+  private joystickY = 0;
+
   private keyDownHandler: (e: KeyboardEvent) => void;
   private keyUpHandler: (e: KeyboardEvent) => void;
 
   constructor(
     scene: BABYLON.Scene,
     playerRoot: BABYLON.TransformNode,
+    collider: BABYLON.Mesh,
     getCamera: () => BABYLON.FollowCamera | null,
     callbacks: PlayerControllerCallbacks = {}
   ) {
     this.scene = scene;
     this.playerRoot = playerRoot;
+    this.collider = collider;
     this.getCamera = getCamera;
     this.callbacks = callbacks;
 
@@ -55,9 +80,8 @@ export class PlayerController {
       }
 
       // Jump on space
-      if (e.key === ' ' && !this.isJumping) {
-        this.isJumping = true;
-        this.jumpVelocity = 0.25;
+      if (e.key === ' ') {
+        this.jump();
       }
 
       // E key to interact (portal / station proximity is the engine's job)
@@ -81,13 +105,32 @@ export class PlayerController {
     }
   }
 
+  /** Analog joystick input from the touch HUD. Any real deflection takes
+   *  over from (and cancels) a tap-to-move target. */
+  public setJoystickInput(x: number, y: number): void {
+    this.joystickX = x;
+    this.joystickY = y;
+    if (Math.abs(x) > JOYSTICK_DEADZONE || Math.abs(y) > JOYSTICK_DEADZONE) {
+      this.moveTarget = null;
+    }
+  }
+
+  public jump(): void {
+    if (!this.isJumping) {
+      this.isJumping = true;
+      this.jumpVelocity = JUMP_VELOCITY;
+    }
+  }
+
   public getIsMoving(): boolean {
     return this.isMoving;
   }
 
-  public update(): void {
+  public update(dt: number): void {
     const camera = this.getCamera();
     if (!camera) return;
+    // Clamp dt so a backgrounded tab doesn't teleport the player on return.
+    const step = Math.min(Math.max(dt, 0), 0.05);
 
     let moveX = 0;
     let moveZ = 0;
@@ -97,26 +140,42 @@ export class PlayerController {
     if (this.keys['a'] || this.keys['arrowleft']) moveX = -1;
     if (this.keys['d'] || this.keys['arrowright']) moveX = 1;
 
-    const hasKeyInput = moveX !== 0 || moveZ !== 0;
-    this.isMoving = hasKeyInput || this.moveTarget !== null;
+    // Joystick: analog — deflection magnitude scales speed.
+    let joyMagnitude = 0;
+    if (Math.abs(this.joystickX) > JOYSTICK_DEADZONE || Math.abs(this.joystickY) > JOYSTICK_DEADZONE) {
+      moveX += this.joystickX;
+      moveZ += this.joystickY;
+      joyMagnitude = Math.min(1, Math.hypot(this.joystickX, this.joystickY));
+    }
 
-    if (hasKeyInput) {
-      const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
-      cameraDirection.y = 0;
-      cameraDirection.normalize();
-      const cameraRight = BABYLON.Vector3.Cross(cameraDirection, BABYLON.Axis.Y);
+    const hasDirectInput = moveX !== 0 || moveZ !== 0;
+    this.isMoving = hasDirectInput || this.moveTarget !== null;
 
-      const movement = cameraDirection.scale(moveZ).add(cameraRight.scale(-moveX));
-      movement.normalize().scaleInPlace(this.playerSpeed);
+    // Camera-relative ground-plane basis
+    const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
+    cameraDirection.y = 0;
+    cameraDirection.normalize();
+    const cameraRight = BABYLON.Vector3.Cross(cameraDirection, BABYLON.Axis.Y);
 
-      this.playerRoot.position.addInPlace(movement);
+    let displacement: BABYLON.Vector3 | null = null;
+    let facingAngle: number | null = null;
 
-      if (movement.length() > 0.001) {
-        const targetAngle = Math.atan2(movement.x, movement.z);
-        this.playerRoot.rotation.y = targetAngle;
+    if (hasDirectInput) {
+      const input = new BABYLON.Vector3(moveX, 0, moveZ);
+      const inputLength = input.length();
+      if (inputLength > 1) input.scaleInPlace(1 / inputLength);
+      // Keyboard input is full strength; joystick deflection scales speed.
+      const strength = Math.max(joyMagnitude, Math.min(1, inputLength));
+
+      const movement = cameraDirection
+        .scale(input.z)
+        .add(cameraRight.scale(-input.x));
+      if (movement.lengthSquared() > 0.0001) {
+        movement.normalize();
+        displacement = movement.scale(WALK_SPEED * strength * step);
+        facingAngle = Math.atan2(movement.x, movement.z);
       }
-
-      this.walkCycle += 0.15;
+      this.walkCycle += WALK_CYCLE_RATE * step * (strength > 0 ? strength : 1);
       this.animateWalk();
     } else if (this.moveTarget) {
       const toTarget = this.moveTarget.subtract(this.playerRoot.position);
@@ -127,21 +186,45 @@ export class PlayerController {
         this.moveTarget = null;
         this.isMoving = false;
       } else {
-        toTarget.normalize().scaleInPlace(Math.min(this.playerSpeed, distance));
-        this.playerRoot.position.addInPlace(toTarget);
-        this.playerRoot.rotation.y = Math.atan2(toTarget.x, toTarget.z);
-        this.walkCycle += 0.15;
+        const travel = Math.min(WALK_SPEED * step, distance);
+        const dir = toTarget.normalize();
+        displacement = dir.scale(travel);
+        facingAngle = Math.atan2(dir.x, dir.z);
+        this.walkCycle += WALK_CYCLE_RATE * step;
         this.animateWalk();
       }
     } else {
-      this.idleTime += 0.02;
+      this.idleTime += step;
       this.animateIdle();
     }
 
-    // Handle jumping
+    // Smooth facing turn (shortest arc) instead of an instant snap.
+    if (facingAngle !== null) {
+      let delta = facingAngle - this.playerRoot.rotation.y;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      const t = 1 - Math.exp(-TURN_RATE * step);
+      this.playerRoot.rotation.y += delta * t;
+    }
+
+    // Real collision movement: run the horizontal displacement through
+    // Babylon's collision solver via the player's capsule collider, then
+    // adopt the solved position. Vertical motion (jump/gravity) stays
+    // scripted below, exactly as before.
+    if (displacement && displacement.lengthSquared() > 0) {
+      this.collider.position.set(
+        this.playerRoot.position.x,
+        this.playerRoot.position.y + COLLIDER_Y_OFFSET,
+        this.playerRoot.position.z
+      );
+      this.collider.moveWithCollisions(displacement);
+      this.playerRoot.position.x = this.collider.position.x;
+      this.playerRoot.position.z = this.collider.position.z;
+    }
+
+    // Handle jumping (per-second gravity)
     if (this.isJumping) {
-      this.playerRoot.position.y += this.jumpVelocity;
-      this.jumpVelocity += this.gravity;
+      this.playerRoot.position.y += this.jumpVelocity * step;
+      this.jumpVelocity += GRAVITY * step;
 
       if (this.playerRoot.position.y <= this.groundLevel) {
         this.playerRoot.position.y = this.groundLevel;

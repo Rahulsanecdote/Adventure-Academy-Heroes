@@ -174,6 +174,35 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
     setBossAnswer('');
   }, [bossAnswer]);
 
+  // Virtual joystick (touch devices): analog movement, so playing on a
+  // phone no longer depends on tap-to-move alone. Pointer capture keeps
+  // the drag tracked even if the thumb slides off the base.
+  const joyBaseRef = useRef<HTMLDivElement>(null);
+  const joyPointerRef = useRef<number | null>(null);
+  const [knobOffset, setKnobOffset] = useState({ x: 0, y: 0 });
+  const JOY_RADIUS = 36;
+
+  const updateJoystick = useCallback((clientX: number, clientY: number) => {
+    const base = joyBaseRef.current;
+    if (!base) return;
+    const rect = base.getBoundingClientRect();
+    let dx = clientX - (rect.left + rect.width / 2);
+    let dy = clientY - (rect.top + rect.height / 2);
+    const len = Math.hypot(dx, dy);
+    if (len > JOY_RADIUS) {
+      dx = (dx / len) * JOY_RADIUS;
+      dy = (dy / len) * JOY_RADIUS;
+    }
+    setKnobOffset({ x: dx, y: dy });
+    engineRef.current?.setJoystickInput(dx / JOY_RADIUS, -dy / JOY_RADIUS);
+  }, []);
+
+  const releaseJoystick = useCallback(() => {
+    joyPointerRef.current = null;
+    setKnobOffset({ x: 0, y: 0 });
+    engineRef.current?.setJoystickInput(0, 0);
+  }, []);
+
   const getPortalEmoji = (worldKey: string) => {
     const emojis: { [key: string]: string } = {
       'math_jungle': '🌴',
@@ -239,10 +268,12 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
               <div className="space-y-1 text-xs sm:text-sm text-white/90">
                 {touchUI ? (
                   <>
-                    <div><strong>Tap ground</strong> - Walk there</div>
+                    <div><strong>Joystick</strong> - Move around</div>
                     <div><strong>Drag</strong> - Look around</div>
+                    <div><strong>Tap ground</strong> - Walk there</div>
                     <div><strong>Tap people</strong> - Talk to them</div>
                     <div><strong>Tap the prompt</strong> - Enter portals &amp; start quests</div>
+                    <div><strong>⬆️ Button</strong> - Jump</div>
                   </>
                 ) : (
                   <>
@@ -272,7 +303,9 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
           <div className="font-display font-bold text-white text-base sm:text-lg mb-1 sm:mb-2">🎯 Objective</div>
           <div className="text-white/90 text-sm sm:text-base">
             {currentWorld === 'math_jungle'
-              ? 'Find a glowing number totem and press E to start its quest!'
+              ? touchUI
+                ? 'Find a glowing number totem and tap its prompt to start its quest!'
+                : 'Find a glowing number totem and press E to start its quest!'
               : 'Explore the hub and find quest portals!'}
           </div>
         </div>
@@ -437,6 +470,48 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
             </div>
           </button>
         </div>
+      )}
+
+      {/* Touch movement controls (phones/tablets): virtual joystick on the
+          left, jump on the right — mid-screen so they never collide with
+          the top cards, phrase bar, prompts, or the boss panel. */}
+      {touchUI && (
+        <>
+          <div
+            ref={joyBaseRef}
+            role="application"
+            aria-label="Move joystick"
+            className="absolute left-3 top-[54%] z-40 w-28 h-28 rounded-full bg-black/40 backdrop-blur-sm border-2 border-white/40 touch-none select-none"
+            onPointerDown={(e) => {
+              joyPointerRef.current = e.pointerId;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              updateJoystick(e.clientX, e.clientY);
+            }}
+            onPointerMove={(e) => {
+              if (joyPointerRef.current === e.pointerId) {
+                updateJoystick(e.clientX, e.clientY);
+              }
+            }}
+            onPointerUp={releaseJoystick}
+            onPointerCancel={releaseJoystick}
+          >
+            <div
+              className="absolute w-12 h-12 rounded-full bg-white/70 shadow-lg pointer-events-none"
+              style={{
+                left: `calc(50% - 24px + ${knobOffset.x}px)`,
+                top: `calc(50% - 24px + ${knobOffset.y}px)`,
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            aria-label="Jump"
+            onClick={() => engineRef.current?.jump()}
+            className="absolute right-3 top-[54%] z-40 w-14 h-14 rounded-full bg-roblox-blue/80 border-2 border-white/50 text-white text-2xl backdrop-blur-sm active:bg-roblox-blue touch-none select-none"
+          >
+            ⬆️
+          </button>
+        </>
       )}
 
       {/* Controls Button */}

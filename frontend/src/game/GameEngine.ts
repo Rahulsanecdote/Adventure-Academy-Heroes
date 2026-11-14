@@ -164,13 +164,31 @@ export class GameEngine {
     scene.collisionsEnabled = true;
 
     // Tap/click on the ground = walk there (click-to-move / tap-to-move).
-    scene.onPointerDown = (_evt, pickInfo) => {
-      if (!pickInfo.hit || !pickInfo.pickedMesh || !pickInfo.pickedPoint) return;
-      const name = pickInfo.pickedMesh.name;
-      if (name.includes('ground') || name.includes('Ground') || name.startsWith('grassPatch')) {
-        this.controller?.setMoveTarget(pickInfo.pickedPoint.clone());
+    // The decision happens on pointer-UP and only for a genuine tap — a
+    // short touch that barely moves. The old onPointerDown handler fired
+    // on every touch, so each camera drag (the way touch users orbit the
+    // FollowCamera) also ordered the character to run to the touch point:
+    // view spinning + character running off at once. Drags are filtered
+    // out here by distance/time; the FollowCamera keeps them.
+    let downX = 0;
+    let downY = 0;
+    let downAt = 0;
+    scene.onPointerObservable.add((info) => {
+      if (info.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+        downX = info.event.clientX;
+        downY = info.event.clientY;
+        downAt = performance.now();
+      } else if (info.type === BABYLON.PointerEventTypes.POINTERUP) {
+        const moved = Math.hypot(info.event.clientX - downX, info.event.clientY - downY);
+        if (downAt === 0 || moved > 14 || performance.now() - downAt > 500) return;
+        const pickInfo = info.pickInfo ?? scene.pick(scene.pointerX, scene.pointerY);
+        if (!pickInfo?.hit || !pickInfo.pickedMesh || !pickInfo.pickedPoint) return;
+        const name = pickInfo.pickedMesh.name;
+        if (name.includes('ground') || name.includes('Ground') || name.startsWith('grassPatch')) {
+          this.controller?.setMoveTarget(pickInfo.pickedPoint.clone());
+        }
       }
-    };
+    });
 
     return scene;
   }
@@ -247,6 +265,16 @@ export class GameEngine {
     }
   }
 
+  /** Touch HUD: analog joystick input (x = strafe, y = forward, -1..1). */
+  public setJoystickInput(x: number, y: number): void {
+    this.controller?.setJoystickInput(x, y);
+  }
+
+  /** Touch HUD: jump (Space on the keyboard). */
+  public jump(): void {
+    this.controller?.jump();
+  }
+
   /** Portal activation routing: in-engine world portals switch scenes;
    *  world-select portals keep the existing React quest flow. */
   private activatePortal(portal: PortalData): void {
@@ -266,15 +294,20 @@ export class GameEngine {
     this.playerRoot = new BABYLON.TransformNode('playerRoot', this.scene);
     this.playerRoot.position = new BABYLON.Vector3(0, 0, 0);
 
+    // Collision capsule: deliberately NOT parented to the player root —
+    // Babylon's moveWithCollisions solves in world space, so the
+    // controller drives this mesh and the visual root adopts the solved
+    // position each frame. (Parented + addInPlace movement, as before,
+    // never engaged the collision system at all.)
     const collider = BABYLON.MeshBuilder.CreateCapsule('playerCollider', { height: 1.9, radius: 0.35 }, this.scene);
     collider.isVisible = false;
+    collider.isPickable = false;
     collider.checkCollisions = true;
-    collider.parent = this.playerRoot;
-    collider.position.y = 0.95;
+    collider.position = new BABYLON.Vector3(0, 0.95, 0);
 
     this.avatarMeshes.push(...buildAvatar(this.scene, this.playerRoot, this.config.childProfile.avatar));
 
-    this.controller = new PlayerController(this.scene, this.playerRoot, () => this.camera, {
+    this.controller = new PlayerController(this.scene, this.playerRoot, collider, () => this.camera, {
       onInteractKey: () => this.interact(),
     });
   }
@@ -284,8 +317,10 @@ export class GameEngine {
 
     this.camera = new BABYLON.FollowCamera('followCam', new BABYLON.Vector3(0, 2, -6), this.scene);
     this.camera.lockedTarget = this.playerRoot as unknown as BABYLON.AbstractMesh;
-    this.camera.radius = 6;
-    this.camera.heightOffset = 2;
+    // Slightly wider framing than the original radius 6: on a phone the
+    // avatar filled the screen and nearby portals/totems were off-camera.
+    this.camera.radius = 7.5;
+    this.camera.heightOffset = 2.2;
     this.camera.rotationOffset = 180;
     this.camera.cameraAcceleration = 0.05;
     this.camera.maxCameraSpeed = 10;
@@ -468,7 +503,10 @@ export class GameEngine {
 
   private startRenderLoop(): void {
     this.engine.runRenderLoop(() => {
-      this.controller?.update();
+      // Delta time (seconds, clamped) drives all controller motion, so
+      // speed and jump physics are identical at 30/60/120 fps.
+      const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.05);
+      this.controller?.update(dt);
       this.checkPortalProximity();
       this.checkStationProximity();
       this.updateRemotes();
