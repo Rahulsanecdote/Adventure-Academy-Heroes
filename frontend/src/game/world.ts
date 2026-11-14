@@ -47,6 +47,8 @@ export function createTree(scene: BABYLON.Scene, parent: BABYLON.TransformNode, 
   trunk.position = position.clone();
   trunk.position.y = 1;
   trunk.parent = parent;
+  // Solid: the player's capsule stops here instead of walking through.
+  trunk.checkCollisions = true;
   const trunkMat = new BABYLON.StandardMaterial('trunkMat', scene);
   trunkMat.diffuseColor = new BABYLON.Color3(0.4, 0.26, 0.13);
   trunk.material = trunkMat;
@@ -188,6 +190,7 @@ function createNPC(
   const body = BABYLON.MeshBuilder.CreateCapsule(`npcBody_${npcData.name}`, { height: 1.5, radius: 0.4 }, scene);
   body.position.y = 0.75;
   body.parent = npcContainer;
+  body.checkCollisions = true;
   const bodyMat = new BABYLON.StandardMaterial(`npcMat_${npcData.name}`, scene);
   bodyMat.diffuseColor = npcData.color;
   body.material = bodyMat;
@@ -262,6 +265,7 @@ export function buildHubWorld(scene: BABYLON.Scene, callbacks: WorldCallbacks): 
     rock.position.y = 0.2;
     rock.scaling.y = 0.6;
     rock.parent = root;
+    rock.checkCollisions = true;
     const rockMat = new BABYLON.StandardMaterial(`rockMat_${i}`, scene);
     rockMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     rock.material = rockMat;
@@ -330,6 +334,7 @@ export function buildMathJungleWorld(scene: BABYLON.Scene, callbacks: WorldCallb
     base.position = position.clone();
     base.position.y = 0.15;
     base.parent = root;
+    base.checkCollisions = true;
     const baseMat = new BABYLON.StandardMaterial(`stationBaseMat_${index}`, scene);
     baseMat.diffuseColor = new BABYLON.Color3(0.45, 0.35, 0.25);
     base.material = baseMat;
@@ -338,6 +343,7 @@ export function buildMathJungleWorld(scene: BABYLON.Scene, callbacks: WorldCallb
     totem.position = position.clone();
     totem.position.y = 1.5;
     totem.parent = root;
+    totem.checkCollisions = true;
     const totemMat = new BABYLON.StandardMaterial(`stationTotemMat_${index}`, scene);
     totemMat.diffuseColor = new BABYLON.Color3(0.55, 0.4, 0.22);
     totemMat.emissiveColor = new BABYLON.Color3(0.12, 0.08, 0.02);
