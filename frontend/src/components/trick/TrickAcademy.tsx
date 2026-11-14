@@ -197,8 +197,9 @@ const TrickAcademy: React.FC<TrickAcademyProps> = ({ childProfile, onExit }) => 
                 The Trick Academy Ascent 🧗
               </h1>
               <p className="font-semibold text-gray-500">
-                Every technique is a journey: 🎯 Dare → 🎭 Reveal → 🔬 Why Lab → 🤝 Side-by-Side →
-                🎲 Remix → 👹 Boss Gate → 🎤 Encore &amp; Exhibit. Master one to unlock the next!
+                Every technique is a journey in three beats: 🎬 Watch (the Dare + the trick) →
+                🎮 Play Rounds → 🎲 Remix → 👹 Boss. Then 🎤 teach it back and defend it in Encores.
+                Master one to unlock the next!
               </p>
             </div>
 

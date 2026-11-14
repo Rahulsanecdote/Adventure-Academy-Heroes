@@ -453,9 +453,15 @@ def _build_remix_set(session: dict) -> List[dict]:
         interleave_id = max(mastered_others, key=lambda tid: by_order.get(tid, 0))
 
     problems = []
+    seen_prompts = set()
     target_count = REMIX_COUNT - (1 if interleave_id else 0)
     for i in range(target_count):
         problem = generate_problem(session["technique_id"], band, rng=rng, mastery=True)
+        for _ in range(10):  # no duplicate prompts inside one Remix set
+            if problem["prompt"] not in seen_prompts:
+                break
+            problem = generate_problem(session["technique_id"], band, rng=rng, mastery=True)
+        seen_prompts.add(problem["prompt"])
         entry = {"technique_id": session["technique_id"], "problem": problem, "skin": None}
         if i % 2 == 0:  # roughly half wear a word-problem skin
             entry["skin"] = apply_skin(technique, problem, rng)
@@ -484,7 +490,6 @@ def start_remix(session_id: str, current_user: TokenData = Depends(get_current_u
     for entry in problems:
         item = public_problem(entry["problem"])
         if entry.get("skin"):
-            item["prompt"] = entry["skin"]
             item["skin"] = entry["skin"]
         if entry["technique_id"] != session["technique_id"]:
             item["mixed_technique"] = technique_by_id(entry["technique_id"])["name"]
@@ -531,9 +536,18 @@ def start_boss(session_id: str, current_user: TokenData = Depends(get_current_us
 
     config = BOSS_CONFIG.get(session["age_band"], BOSS_CONFIG["7-8"])
     rng = random.Random()
-    problems = [generate_problem(session["technique_id"], session["age_band"],
-                                 rng=rng, mastery=True)
-                for _ in range(config["count"])]
+    problems = []
+    seen_prompts = set()
+    for _ in range(config["count"]):
+        problem = generate_problem(session["technique_id"], session["age_band"],
+                                   rng=rng, mastery=True)
+        for _ in range(20):  # a boss never asks the same question twice
+            if problem["prompt"] not in seen_prompts:
+                break
+            problem = generate_problem(session["technique_id"], session["age_band"],
+                                       rng=rng, mastery=True)
+        seen_prompts.add(problem["prompt"])
+        problems.append(problem)
     time_limit = config["count"] * config["seconds_per_problem"]
 
     trick_sessions_collection.update_one(

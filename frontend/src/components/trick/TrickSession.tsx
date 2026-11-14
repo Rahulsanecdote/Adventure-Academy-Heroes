@@ -187,16 +187,18 @@ const StepForm: React.FC<StepFormProps> = ({
           )}
         </div>
       ))}
-      {activeKey && steps.some((s) => s.kind !== 'choice') && (
-        <NumPad
-          onKey={(k) =>
-            setValues((v) => ({ ...v, [activeKey]: padApply(v[activeKey] ?? '', k) }))
-          }
-        />
-      )}
-      <GameButton onClick={handleSubmit} disabled={!ready || busy} className="w-full" size="lg">
-        {submitLabel}
-      </GameButton>
+      <div className="sticky bottom-2 z-10 bg-white/95 rounded-2xl shadow-lg p-2 space-y-3">
+        {activeKey && steps.some((s) => s.kind !== 'choice') && (
+          <NumPad
+            onKey={(k) =>
+              setValues((v) => ({ ...v, [activeKey]: padApply(v[activeKey] ?? '', k) }))
+            }
+          />
+        )}
+        <GameButton onClick={handleSubmit} disabled={!ready || busy} className="w-full" size="lg">
+          {submitLabel}
+        </GameButton>
+      </div>
     </div>
   );
 };
@@ -371,6 +373,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
       const next = await trickAcademyAPI.nextRep(session.session_id, wantDemo);
       setRep(next);
       setSoloAnswer('');
+      setRepMessage('');
     } catch (err) {
       fail(err, 'Could not load the next rep.');
     }
@@ -409,8 +412,13 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
   const handleRepResult = (result: { correct: boolean; consecutive_solo_correct: number; gate_passed: boolean; correct_answer?: number | null }) => {
     if (result.correct) {
       setCoinPop(true);
-      window.setTimeout(() => setCoinPop(false), 1200);
+      window.setTimeout(() => setCoinPop(false), 1600);
     }
+    // Always reflect the server's streak count immediately — including on
+    // the gate-passing rep (an early return here left the stars one behind).
+    setRep((prev) =>
+      prev ? { ...prev, consecutive_solo_correct: result.consecutive_solo_correct } : prev
+    );
     if (result.gate_passed) {
       setGatePassed(true);
       setRepMessage('Three solo reps in a row! The gate is open. 🎉');
@@ -420,9 +428,6 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
       result.correct
         ? 'Nailed it! Keep the streak going.'
         : `Not quite — the answer was ${result.correct_answer}. Watch a guide rep and go again!`
-    );
-    setRep((prev) =>
-      prev ? { ...prev, consecutive_solo_correct: result.consecutive_solo_correct } : prev
     );
   };
 
@@ -655,6 +660,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
               {repMessage && (
                 <div className="bg-blue-50 border-4 border-blue-200 rounded-2xl p-3 font-bold text-blue-800 text-center mb-4">
                   {repMessage}
+                  {coinPop && <span className="inline-block animate-bounce ml-2 text-2xl">🪙✨</span>}
                 </div>
               )}
               {gatePassed ? (
@@ -784,7 +790,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
               <div className="text-6xl mb-3">🔄</div>
               <h2 className="text-3xl font-game font-bold text-gray-800 mb-2">So close!</h2>
               <p className="text-lg font-semibold text-gray-600 mb-2">
-                {bossResult.correct_count}/{bossResult.total_questions} in {bossResult.elapsed_seconds}s.
+                {bossResult.correct_count}/{bossResult.total_questions} in {Math.round(bossResult.elapsed_seconds)}s.
               </p>
               <p className="text-lg font-bold text-purple-700 mb-5">{bossResult.iteration_line}</p>
               <GameButton onClick={enterRemix} disabled={busy} className="w-full" size="lg">
@@ -799,7 +805,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
               <div className="text-7xl mb-2 animate-bounce">{bossResult.reward.badges?.[0]?.icon || technique.icon}</div>
               <h2 className="text-3xl font-game font-bold text-gray-800 mb-2">Boss defeated! 🏆</h2>
               <p className="text-lg font-semibold text-gray-600 mb-1">
-                {bossResult.correct_count}/{bossResult.total_questions} in {bossResult.elapsed_seconds}s —{' '}
+                {bossResult.correct_count}/{bossResult.total_questions} in {Math.round(bossResult.elapsed_seconds)}s —{' '}
                 {technique.name} is YOUR move now.
               </p>
               <p className="font-bold text-purple-700 mb-1">
