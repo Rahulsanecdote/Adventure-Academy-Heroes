@@ -91,13 +91,20 @@ def gen_make_a_ten(band: str, rng: random.Random, mastery: bool = False) -> dict
         d = rng.randint(6, 9)
         a = tens * 10 + d
         need = 10 - d
-        rest = rng.randint(2, 8) if mastery else rng.randint(1, 6)
+        rest_lo, rest_hi = (2, 8) if mastery else (1, 6)
+        rest = rng.randint(rest_lo, rest_hi)
     else:
         a = rng.randint(6, 9)
         need = 10 - a
         max_rest = 5 if band == "7-8" else 7
-        rest = rng.randint(2 if mastery else 1, max_rest)
+        rest_lo, rest_hi = (2 if mastery else 1), max_rest
+        rest = rng.randint(rest_lo, rest_hi)
     b = need + rest
+    while b == 10:
+        # Degenerate case: "7 + 10" needs no trick at all — adding ten is
+        # already free. Re-roll the split so the move stays necessary.
+        rest = rng.randint(rest_lo, rest_hi)
+        b = need + rest
     ten_value = a + need
     total = a + b
     steps = [
