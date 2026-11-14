@@ -49,12 +49,12 @@ export const SignupPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-roblox-green via-emerald-500 to-teal-600">
       <GameCard className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎉</div>
-          <h1 className="text-4xl font-game font-bold text-gray-800 mb-2">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🎉</div>
+          <h1 className="text-3xl sm:text-4xl font-game font-bold text-gray-800 mb-2">
             KidQuest Academy
           </h1>
-          <p className="text-xl font-display font-bold text-roblox-green">Create Parent Account</p>
+          <p className="text-lg sm:text-xl font-display font-bold text-roblox-green">Create Parent Account</p>
         </div>
 
         <form onSubmit={handleSubmit}>
