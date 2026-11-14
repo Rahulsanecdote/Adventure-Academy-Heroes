@@ -237,6 +237,7 @@ export interface TrickDare {
   operation: string;
   dare_line: string;
   prediction_options: string[];
+  answer_options: number[];
 }
 
 export interface TrickSessionStart {
@@ -256,7 +257,7 @@ export interface TrickReveal {
 export interface TrickDareResult {
   answer_correct: boolean;
   correct_answer: number;
-  prediction: number;
+  prediction: number | null;
   stage: string;
   reveal: TrickReveal;
 }

@@ -61,6 +61,9 @@ class DarePayload(BaseModel):
     operation: str
     dare_line: str
     prediction_options: List[str]
+    # Three tap-to-guess choices (the answer + two near misses, shuffled).
+    # The 3-beat flow answers the Dare with one tap — no typing.
+    answer_options: List[int] = []
 
 
 class SessionCreateResponse(BaseModel):
@@ -72,7 +75,10 @@ class SessionCreateResponse(BaseModel):
 
 class DareSubmitRequest(BaseModel):
     answer: int
-    prediction: int = Field(ge=0)  # index into PREDICTION_OPTIONS
+    # Index into PREDICTION_OPTIONS. Optional: the 3-beat flow dropped the
+    # prediction-commitment form (too much friction for kids); older clients
+    # may still send it, and it is recorded when present.
+    prediction: Optional[int] = None
 
 
 class PerformanceStep(BaseModel):
@@ -90,7 +96,7 @@ class RevealContent(BaseModel):
 class DareSubmitResponse(BaseModel):
     answer_correct: bool
     correct_answer: int
-    prediction: int
+    prediction: Optional[int] = None
     stage: str
     reveal: RevealContent
 
