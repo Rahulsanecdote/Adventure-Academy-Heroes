@@ -151,6 +151,18 @@ def create_session(data: SessionCreateRequest, current_user: TokenData = Depends
 
     band = _band(child)
     dare_problem = generate_problem(technique["id"], band)
+    # Tap-to-guess choices for the Dare: the answer plus two plausible
+    # near misses, shuffled. Kids tap one — no keyboard, no form.
+    answer = dare_problem["answer"]
+    wrongs = []
+    for delta in (1, -1, 2, -2, 10, -10, 3, -3, 20, -20):
+        candidate = answer + delta
+        if candidate >= 0 and candidate != answer and candidate not in wrongs:
+            wrongs.append(candidate)
+        if len(wrongs) == 2:
+            break
+    answer_options = wrongs + [answer]
+    random.shuffle(answer_options)
     session = {
         "id": str(uuid.uuid4()),
         "child_id": data.child_id,
@@ -171,6 +183,7 @@ def create_session(data: SessionCreateRequest, current_user: TokenData = Depends
             operation=dare_problem["operation"],
             dare_line=technique["dare_line"].format(prompt=dare_problem["prompt"].replace(" = ?", "")),
             prediction_options=PREDICTION_OPTIONS,
+            answer_options=answer_options,
         ),
     )
 
@@ -180,7 +193,7 @@ def submit_dare(session_id: str, data: DareSubmitRequest,
                       current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "dare")
-    if not (0 <= data.prediction < len(PREDICTION_OPTIONS)):
+    if data.prediction is not None and not (0 <= data.prediction < len(PREDICTION_OPTIONS)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown prediction")
 
     problem = session["dare_problem"]
@@ -246,8 +259,16 @@ def submit_mimic(session_id: str, data: StepAnswersRequest,
     why_lab = None
     stage = "reveal"
     if complete:
-        stage = "why_lab"
-        _set_stage(session_id, stage)
+        # 3-beat flow: the Why Lab is no longer a gate. Finishing the guided
+        # rep moves straight into the Play rounds (side-by-side); the why
+        # payload still rides along so the client can offer it as an
+        # optional "curious why?" peek. The probe endpoint stays live for
+        # any surface that wants it.
+        stage = "side_by_side"
+        _set_stage(session_id, stage,
+                   sbs={"reps_started": 0, "reps_completed": 0,
+                        "consecutive_solo": 0, "last_solo_failed": False,
+                        "alongs_done": 0, "current_rep": None, "gate_passed": False})
         why_lab = _why_lab_payload(session["technique_id"])
 
     return MimicSubmitResponse(

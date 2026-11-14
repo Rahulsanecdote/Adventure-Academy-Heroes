@@ -12,26 +12,36 @@ import {
   TrickTechnique,
   TrickWhyLab,
 } from '../../types';
-import { TrickExplorer, TrickVisual } from './TrickVisual';
+import { TrickVisual } from './TrickVisual';
 
 // ---------------------------------------------------------------------------
-// TrickSession (Phase 3) — one technique's journey through The Trick Academy
-// Ascent: Dare -> Reveal -> Why Lab -> Side-by-Side -> Remix -> Boss Gate.
-// Encore & Exhibit (stage 7) lives on the Academy page after mastery.
+// TrickSession — one technique's journey through The Trick Academy, in the
+// 3-beat game flow (Nov 2026 redesign — the old 6-gate Ascent read as
+// homework: typed answers, a prediction form, and a Why Lab gate):
+//   Beat 1 · WATCH — the Dare is one tap-guess, then the Reveal performs
+//            the trick and a guided rep walks the kid through the moves.
+//   Beat 2 · PLAY  — side-by-side rounds + the Remix: streaks, stars, and
+//            a big number pad instead of the phone keyboard. The Why Lab
+//            survives as an optional "curious why?" peek, never a gate.
+//   Beat 3 · BOSS  — the Boss Gate finale, unchanged.
+// Encore & Exhibit lives on the Academy page after mastery.
 // All problems are generated and graded server-side; this component only
-// collects the kid's step answers.
+// collects the kid's answers.
 // ---------------------------------------------------------------------------
 
 type Stage = 'loading' | 'dare' | 'reveal' | 'why' | 'side_by_side' | 'remix' | 'boss' | 'done';
 
-const STAGE_CHIPS: { key: Stage; label: string }[] = [
-  { key: 'dare', label: '🎯 Dare' },
-  { key: 'reveal', label: '🎭 Reveal' },
-  { key: 'why', label: '🔬 Why Lab' },
-  { key: 'side_by_side', label: '🤝 Side-by-Side' },
-  { key: 'remix', label: '🎲 Remix' },
-  { key: 'boss', label: '👹 Boss Gate' },
+const BEATS: { label: string; stages: string[] }[] = [
+  { label: '🎬 Watch', stages: ['dare', 'reveal'] },
+  { label: '🎮 Play', stages: ['why', 'side_by_side', 'remix'] },
+  { label: '👹 Boss', stages: ['boss-intro', 'boss'] },
 ];
+
+const beatIndexFor = (stage: Stage): number => {
+  if (stage === 'done') return BEATS.length;
+  const idx = BEATS.findIndex((b) => b.stages.includes(stage as string));
+  return idx === -1 ? 0 : idx;
+};
 
 const renderLabel = (
   label: string,
@@ -46,6 +56,50 @@ const renderLabel = (
     }
     return values[token] !== undefined && values[token] !== '' ? values[token] : '…';
   });
+
+// ---------------------------------------------------------------------------
+// Big friendly number pad — kids tap digits instead of fighting the phone
+// keyboard (the single biggest friction in the old flow).
+// ---------------------------------------------------------------------------
+const NumPad: React.FC<{ onKey: (key: string) => void }> = ({ onKey }) => (
+  <div className="grid grid-cols-3 gap-2 mt-3 max-w-xs mx-auto">
+    {['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'C'].map((k) => (
+      <button
+        key={k}
+        type="button"
+        onClick={() => onKey(k)}
+        className="py-3 rounded-2xl bg-indigo-100 border-b-4 border-indigo-300 font-game font-bold text-2xl text-indigo-900 active:translate-y-0.5 active:border-b-2"
+      >
+        {k}
+      </button>
+    ))}
+  </div>
+);
+
+const PadField: React.FC<{
+  value: string;
+  active: boolean;
+  onTap: () => void;
+  placeholder?: string;
+  small?: boolean;
+}> = ({ value, active, onTap, placeholder, small }) => (
+  <button
+    type="button"
+    onClick={onTap}
+    className={`w-full font-bold text-center border-4 rounded-2xl ${
+      small ? 'text-2xl py-1' : 'text-3xl py-2'
+    } ${active ? 'border-roblox-blue bg-blue-50' : 'border-gray-300 bg-white'}`}
+  >
+    {value === '' ? <span className="text-gray-300">{placeholder ?? '?'}</span> : value}
+  </button>
+);
+
+const padApply = (current: string, key: string): string => {
+  if (key === '⌫') return current.slice(0, -1);
+  if (key === 'C') return '';
+  if (current.length >= 4) return current;
+  return current + key;
+};
 
 interface StepFormProps {
   problem: TrickProblem;
@@ -63,6 +117,9 @@ const StepForm: React.FC<StepFormProps> = ({
   const [values, setValues] = useState<Record<string, string>>({});
   const [choices, setChoices] = useState<Record<string, number>>({});
   const steps = problem.steps || [];
+  const [activeKey, setActiveKey] = useState<string | null>(
+    () => steps.find((s) => s.kind !== 'choice')?.key ?? null
+  );
 
   const choiceParts: Record<string, number[]> = {};
   steps.forEach((s) => {
@@ -116,13 +173,10 @@ const StepForm: React.FC<StepFormProps> = ({
               ))}
             </div>
           ) : (
-            <input
-              type="number"
-              inputMode="numeric"
+            <PadField
               value={values[step.key] ?? ''}
-              onChange={(e) => setValues({ ...values, [step.key]: e.target.value })}
-              className="w-full text-2xl font-bold text-center border-4 border-gray-300 rounded-xl py-2 focus:border-roblox-blue outline-none"
-              placeholder="?"
+              active={activeKey === step.key}
+              onTap={() => setActiveKey(step.key)}
             />
           )}
           {showHints && step.hint && (
@@ -133,6 +187,13 @@ const StepForm: React.FC<StepFormProps> = ({
           )}
         </div>
       ))}
+      {activeKey && steps.some((s) => s.kind !== 'choice') && (
+        <NumPad
+          onKey={(k) =>
+            setValues((v) => ({ ...v, [activeKey]: padApply(v[activeKey] ?? '', k) }))
+          }
+        />
+      )}
       <GameButton onClick={handleSubmit} disabled={!ready || busy} className="w-full" size="lg">
         {submitLabel}
       </GameButton>
@@ -147,36 +208,44 @@ interface AnswerListProps {
   feedback?: boolean[];
 }
 
-const AnswerList: React.FC<AnswerListProps> = ({ problems, values, onChange, feedback }) => (
-  <div className="space-y-3">
-    {problems.map((problem, i) => (
-      <div
-        key={i}
-        className={`bg-white rounded-2xl border-4 p-3 ${
-          feedback === undefined ? 'border-gray-200' : feedback[i] ? 'border-green-400' : 'border-red-400'
-        }`}
-      >
-        {problem.skin && (
-          <div className="font-semibold text-gray-700 mb-1">{problem.skin}</div>
-        )}
-        {problem.mixed_technique && (
-          <div className="text-sm font-bold text-purple-600 mb-1">🌀 Blast from the past!</div>
-        )}
-        <div className="flex items-center gap-3">
-          <div className="text-2xl font-game font-bold text-gray-800 flex-1">{problem.prompt}</div>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={values[i] ?? ''}
-            onChange={(e) => onChange(i, e.target.value)}
-            className="w-28 text-2xl font-bold text-center border-4 border-gray-300 rounded-xl py-1 focus:border-roblox-blue outline-none"
-            placeholder="?"
-          />
-        </div>
+const AnswerList: React.FC<AnswerListProps> = ({ problems, values, onChange, feedback }) => {
+  const [activeRow, setActiveRow] = useState(0);
+  return (
+    <div>
+      <div className="space-y-3">
+        {problems.map((problem, i) => (
+          <div
+            key={i}
+            className={`bg-white rounded-2xl border-4 p-3 ${
+              feedback === undefined ? 'border-gray-200' : feedback[i] ? 'border-green-400' : 'border-red-400'
+            }`}
+          >
+            {problem.skin && (
+              <div className="font-semibold text-gray-700 mb-1">{problem.skin}</div>
+            )}
+            {problem.mixed_technique && (
+              <div className="text-sm font-bold text-purple-600 mb-1">🌀 Blast from the past!</div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="text-2xl font-game font-bold text-gray-800 flex-1">{problem.prompt}</div>
+              <div className="w-28 shrink-0">
+                <PadField
+                  small
+                  value={values[i] ?? ''}
+                  active={activeRow === i}
+                  onTap={() => setActiveRow(i)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
-);
+      {problems.length > 0 && (
+        <NumPad onKey={(k) => onChange(activeRow, padApply(values[activeRow] ?? '', k))} />
+      )}
+    </div>
+  );
+};
 
 interface TrickSessionProps {
   childId: string;
@@ -191,8 +260,6 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
   const [session, setSession] = useState<TrickSessionStart | null>(null);
 
   // Dare
-  const [dareAnswer, setDareAnswer] = useState('');
-  const [prediction, setPrediction] = useState<number | null>(null);
   const [dareResult, setDareResult] = useState<TrickDareResult | null>(null);
 
   // Reveal
@@ -201,16 +268,15 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
   const [mimicRound, setMimicRound] = useState(0);
   const [mimicFeedback, setMimicFeedback] = useState<Record<string, boolean> | undefined>();
 
-  // Why Lab
+  // Why (optional peek, no longer a gate)
   const [whyLab, setWhyLab] = useState<TrickWhyLab | null>(null);
-  const [probeValues, setProbeValues] = useState<string[]>([]);
-  const [probeHint, setProbeHint] = useState('');
 
-  // Side-by-Side
+  // Side-by-Side (Play rounds)
   const [rep, setRep] = useState<TrickRep | null>(null);
   const [repMessage, setRepMessage] = useState('');
   const [soloAnswer, setSoloAnswer] = useState('');
   const [gatePassed, setGatePassed] = useState(false);
+  const [coinPop, setCoinPop] = useState(false);
 
   // Remix
   const [remixProblems, setRemixProblems] = useState<TrickProblem[]>([]);
@@ -246,13 +312,12 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
     setError(err.response?.data?.detail || fallback);
 
   // ---------------------------------------------------------- stage actions
-  const submitDare = async () => {
-    if (!session || prediction === null) return;
+  const submitDare = async (answer: number) => {
+    if (!session || busy) return;
     setBusy(true);
     try {
-      const result = await trickAcademyAPI.submitDare(
-        session.session_id, parseInt(dareAnswer, 10), prediction
-      );
+      // One tap, no prediction form — the guess IS the commitment.
+      const result = await trickAcademyAPI.submitDare(session.session_id, answer, null);
       setDareResult(result);
     } catch (err) {
       fail(err, 'The Dare could not be checked.');
@@ -281,10 +346,13 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
     setBusy(true);
     try {
       const result = await trickAcademyAPI.submitMimic(session.session_id, stepAnswers);
-      if (result.complete && result.why_lab) {
-        setWhyLab(result.why_lab);
-        setProbeValues(new Array(result.why_lab.probe.input_labels.length).fill(''));
-        setStage('why');
+      if (result.complete) {
+        // Beat 1 done — straight into the Play rounds. The Why Lab rides
+        // along as an optional peek, never a gate.
+        if (result.why_lab) setWhyLab(result.why_lab);
+        setMimicFeedback(undefined);
+        setStage('side_by_side');
+        await loadRep(false);
       } else {
         const feedback: Record<string, boolean> = {};
         result.step_results.forEach((r) => (feedback[r.key] = r.correct));
@@ -292,26 +360,6 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
       }
     } catch (err) {
       fail(err, 'Could not check your steps.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitProbe = async () => {
-    if (!session) return;
-    setBusy(true);
-    try {
-      const result = await trickAcademyAPI.submitProbe(
-        session.session_id, probeValues.map((v) => parseInt(v, 10))
-      );
-      if (result.correct) {
-        setStage('side_by_side');
-        await loadRep(false);
-      } else {
-        setProbeHint(result.hint || 'Look at the model again and try a different state.');
-      }
-    } catch (err) {
-      fail(err, 'Could not check the probe.');
     } finally {
       setBusy(false);
     }
@@ -359,6 +407,10 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
   };
 
   const handleRepResult = (result: { correct: boolean; consecutive_solo_correct: number; gate_passed: boolean; correct_answer?: number | null }) => {
+    if (result.correct) {
+      setCoinPop(true);
+      window.setTimeout(() => setCoinPop(false), 1200);
+    }
     if (result.gate_passed) {
       setGatePassed(true);
       setRepMessage('Three solo reps in a row! The gate is open. 🎉');
@@ -445,8 +497,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
   };
 
   // ---------------------------------------------------------- render
-  const stageIndex =
-    (stage as string) === 'boss-intro' ? 5 : STAGE_CHIPS.findIndex((c) => c.key === stage);
+  const beatIndex = beatIndexFor(stage);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-400 via-purple-400 to-pink-300 p-4">
@@ -461,18 +512,18 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
         </div>
 
         <div className="flex gap-1 justify-center mb-4 flex-wrap">
-          {STAGE_CHIPS.map((chip, i) => (
+          {BEATS.map((beat, i) => (
             <span
-              key={chip.key}
-              className={`px-3 py-1 rounded-full text-sm font-bold ${
-                stage === 'done' || i < stageIndex
+              key={beat.label}
+              className={`px-4 py-1.5 rounded-full font-game font-bold ${
+                stage === 'done' || i < beatIndex
                   ? 'bg-green-400 text-white'
-                  : i === stageIndex
+                  : i === beatIndex
                     ? 'bg-white text-gray-800 shadow-lg scale-105'
                     : 'bg-white/50 text-gray-600'
               }`}
             >
-              {chip.label}
+              {beat.label}
             </span>
           ))}
         </div>
@@ -486,44 +537,27 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
         <div className="bg-white/95 rounded-3xl shadow-2xl p-5 md:p-7">
           {stage === 'loading' && <p className="text-center font-bold text-gray-600">Setting up your challenge…</p>}
 
-          {/* ------------------------------------------------ Stage 1: The Dare */}
+          {/* ------------------------------------------------ Beat 1: The Dare (one tap) */}
           {stage === 'dare' && session && !dareResult && (
             <div>
               <h2 className="text-3xl font-game font-bold text-center text-gray-800 mb-2">🎯 The Dare</h2>
               <p className="text-center text-xl font-bold text-purple-700 mb-4">{session.dare.dare_line}</p>
-              <div className="text-center text-4xl font-game font-bold text-gray-800 mb-4">{session.dare.prompt}</div>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={dareAnswer}
-                onChange={(e) => setDareAnswer(e.target.value)}
-                className="w-full text-3xl font-bold text-center border-4 border-gray-300 rounded-2xl py-3 mb-4 focus:border-roblox-blue outline-none"
-                placeholder="Your cold attempt"
-              />
-              <p className="font-bold text-gray-700 mb-2">Before anything is revealed — commit to a prediction:</p>
-              <div className="grid gap-2 mb-4">
-                {session.dare.prediction_options.map((option, i) => (
+              <div className="text-center text-4xl font-game font-bold text-gray-800 mb-5">{session.dare.prompt}</div>
+              <div className="grid grid-cols-3 gap-3">
+                {(session.dare.answer_options ?? []).map((option) => (
                   <button
-                    key={i}
-                    onClick={() => setPrediction(i)}
-                    className={`px-4 py-3 rounded-2xl border-4 font-bold text-left ${
-                      prediction === i
-                        ? 'bg-purple-500 text-white border-purple-700'
-                        : 'bg-gray-50 border-gray-300 text-gray-700'
-                    }`}
+                    key={option}
+                    onClick={() => submitDare(option)}
+                    disabled={busy}
+                    className="py-5 rounded-3xl bg-gradient-to-b from-amber-300 to-orange-400 border-b-8 border-orange-600 font-game font-bold text-4xl text-white shadow-lg active:translate-y-1 active:border-b-4 disabled:opacity-50"
                   >
                     {option}
                   </button>
                 ))}
               </div>
-              <GameButton
-                onClick={submitDare}
-                disabled={prediction === null || dareAnswer.trim() === '' || busy}
-                className="w-full"
-                size="lg"
-              >
-                🔒 Lock it in!
-              </GameButton>
+              <p className="text-center font-semibold text-gray-500 mt-4">
+                One tap. No timer, no pressure — just your gut. 🤔
+              </p>
             </div>
           )}
 
@@ -596,58 +630,28 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
             </div>
           )}
 
-          {/* ------------------------------------------------ Stage 3: The Why Lab */}
-          {stage === 'why' && whyLab && (
-            <div>
-              <h2 className="text-3xl font-game font-bold text-center text-gray-800 mb-3">🔬 The Why Lab</h2>
-              <p className="text-lg font-semibold text-gray-700 bg-teal-50 border-4 border-teal-200 rounded-2xl p-4 mb-4">
-                {whyLab.why_text}
-              </p>
-              <div className="mb-5">
-                <TrickExplorer visualType={whyLab.explorer_visual?.type} />
-              </div>
-              <div className="bg-yellow-50 border-4 border-yellow-300 rounded-2xl p-4">
-                <p className="font-bold text-gray-800 mb-3">🤔 {whyLab.probe.instruction}</p>
-                <div className="flex gap-3 flex-wrap">
-                  {whyLab.probe.input_labels.map((label, i) => (
-                    <label key={i} className="flex-1 min-w-[120px]">
-                      <span className="text-sm font-bold text-gray-500">{label}</span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={probeValues[i] ?? ''}
-                        onChange={(e) => {
-                          const next = [...probeValues];
-                          next[i] = e.target.value;
-                          setProbeValues(next);
-                        }}
-                        className="w-full text-2xl font-bold text-center border-4 border-gray-300 rounded-xl py-2 focus:border-roblox-blue outline-none"
-                      />
-                    </label>
-                  ))}
-                </div>
-                {probeHint && <p className="text-orange-600 font-bold mt-2">💡 {probeHint}</p>}
-                <GameButton
-                  onClick={submitProbe}
-                  disabled={busy || probeValues.some((v) => v.trim() === '')}
-                  className="w-full mt-3"
-                  size="lg"
-                >
-                  Test my model
-                </GameButton>
-              </div>
-            </div>
-          )}
-
-          {/* ------------------------------------------------ Stage 4: Side-by-Side */}
+          {/* ------------------------------------------------ Beat 2: Play rounds */}
           {stage === 'side_by_side' && (
             <div>
-              <h2 className="text-3xl font-game font-bold text-center text-gray-800 mb-1">🤝 Side-by-Side</h2>
+              <h2 className="text-3xl font-game font-bold text-center text-gray-800 mb-1">
+                🎮 Play Rounds
+                {coinPop && <span className="inline-block animate-bounce ml-2">🪙✨</span>}
+              </h2>
               <p className="text-center font-semibold text-gray-500 mb-2">
                 Solo streak: {'⭐'.repeat(rep?.consecutive_solo_correct ?? 0)}
                 {'☆'.repeat(Math.max(0, (rep?.solo_streak_needed ?? 3) - (rep?.consecutive_solo_correct ?? 0)))}
+                {(rep?.consecutive_solo_correct ?? 0) >= 2 &&
+                  <span className="text-orange-500"> 🔥×{rep?.consecutive_solo_correct} on fire!</span>}
                 {' '}— {rep?.solo_streak_needed ?? 3} in a row, unaided, opens the next gate.
               </p>
+              {whyLab && (
+                <details className="mb-4 bg-teal-50 border-4 border-teal-200 rounded-2xl p-3">
+                  <summary className="font-game font-bold text-teal-800 cursor-pointer">
+                    🔬 Curious why this trick works?
+                  </summary>
+                  <p className="font-semibold text-gray-700 mt-2">{whyLab.why_text}</p>
+                </details>
+              )}
               {repMessage && (
                 <div className="bg-blue-50 border-4 border-blue-200 rounded-2xl p-3 font-bold text-blue-800 text-center mb-4">
                   {repMessage}
@@ -686,16 +690,12 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
                   ) : (
                     <div>
                       <div className="text-center text-4xl font-game font-bold text-gray-800 mb-4">{rep.problem.prompt}</div>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={soloAnswer}
-                        onChange={(e) => setSoloAnswer(e.target.value)}
-                        className="w-full text-3xl font-bold text-center border-4 border-gray-300 rounded-2xl py-3 mb-4 focus:border-roblox-blue outline-none"
-                        placeholder="Answer"
-                      />
-                      <GameButton onClick={submitRepSolo} disabled={soloAnswer.trim() === '' || busy} className="w-full" size="lg">
-                        Fire!
+                      <div className="max-w-xs mx-auto mb-2">
+                        <PadField value={soloAnswer} active onTap={() => {}} placeholder="Answer" />
+                        <NumPad onKey={(k) => setSoloAnswer((v) => padApply(v, k))} />
+                      </div>
+                      <GameButton onClick={submitRepSolo} disabled={soloAnswer.trim() === '' || busy} className="w-full mt-3" size="lg">
+                        Fire! 🚀
                       </GameButton>
                     </div>
                   )}
@@ -810,8 +810,8 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
                 {bossResult.reward.new_level ? ` · 🎉 Level ${bossResult.reward.new_level}!` : ''}
               </p>
               <p className="text-sm font-semibold text-gray-500 mb-5">
-                Stage 7 awaits: teach it back from the Academy page, and watch for Encore rematches
-                tomorrow, in 3 days, and in a week!
+                Bonus adventures await: teach it back from the Academy page, and watch for Encore
+                rematches tomorrow, in 3 days, and in a week!
               </p>
               <GameButton onClick={onExit} className="w-full" size="lg" variant="success">
                 🎓 Back to the Academy

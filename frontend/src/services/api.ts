@@ -278,7 +278,7 @@ export const trickAcademyAPI = {
     return response.data;
   },
 
-  submitDare: async (sessionId: string, answer: number, prediction: number): Promise<TrickDareResult> => {
+  submitDare: async (sessionId: string, answer: number, prediction: number | null): Promise<TrickDareResult> => {
     const response = await api.post<TrickDareResult>(`/api/trick-academy/sessions/${sessionId}/dare`, {
       answer,
       prediction,

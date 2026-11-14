@@ -47,3 +47,39 @@ trick_encores_collection = db.trick_encores
 
 def get_database():
     return db
+
+
+# ---------------------------------------------------------------------------
+# Indexes (added Nov 13, 2026). Production logs showed COLLSCANs on the hot
+# lookup paths (login by email, per-child session/mastery reads) — on the
+# small Fly Mongo machine those scans, plus a flood of abandoned cursors,
+# were a major share of the multi-second stalls. create_index is idempotent
+# and cheap on these small collections; it runs at import so every deploy
+# self-heals the index set. Background=True + a guard so an index hiccup can
+# never take the API down at boot.
+# ---------------------------------------------------------------------------
+def _ensure_indexes():
+    specs = [
+        (users_collection, "email"),
+        (children_collection, "id"),
+        (children_collection, "parent_id"),
+        (trick_sessions_collection, "id"),
+        (trick_sessions_collection, "child_id"),
+        (trick_mastery_collection, "child_id"),
+        (trick_attempts_collection, "child_id"),
+        (trick_dares_collection, "child_id"),
+        (trick_encores_collection, "child_id"),
+        (challenges_collection, "id"),
+        (challenges_collection, "child_id"),
+        (attempts_collection, "child_id"),
+        (progress_collection, "child_id"),
+        (quest_steps_collection, "quest_id"),
+    ]
+    for collection, field in specs:
+        try:
+            collection.create_index(field, background=True)
+        except Exception:
+            pass
+
+
+_ensure_indexes()
