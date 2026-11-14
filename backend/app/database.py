@@ -5,7 +5,23 @@ import os
 # Get MongoDB URL from environment
 MONGO_URL = os.environ.get('MONGO_URL', settings.mongo_url)
 
-client = MongoClient(MONGO_URL)
+# Client options bound every database operation and recycle pooled sockets.
+# Diagnosed on Fly (Nov 13, 2026): with pymongo defaults, requests served by
+# the long-running web process intermittently stalled 30-120s+ reaching
+# MongoDB over Fly's private network, while a fresh client in the same
+# machine connected and queried in ~0.01s (verified repeatedly, including
+# after 90-120s idle). Short timeouts make a stalled connection fail fast
+# and reconnect — which is the path that is always fast here — instead of
+# hanging the request, and maxIdleTimeMS retires pooled sockets before
+# they can go stale.
+client = MongoClient(
+    MONGO_URL,
+    serverSelectionTimeoutMS=8000,
+    connectTimeoutMS=5000,
+    socketTimeoutMS=15000,
+    maxIdleTimeMS=30000,
+    retryWrites=True,
+)
 db = client.kidquest
 
 # Collections
