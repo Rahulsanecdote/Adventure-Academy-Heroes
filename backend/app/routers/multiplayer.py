@@ -47,7 +47,7 @@ def room_age_band(child_age_band: str) -> str:
 
 
 @router.post("/session-token", response_model=SessionTokenResponse)
-async def create_session_token(
+def create_session_token(
     body: SessionTokenRequest,
     current_user: TokenData = Depends(get_current_parent),
 ):
@@ -86,7 +86,7 @@ async def create_session_token(
 
 
 @router.post("/boss-reward", response_model=BossRewardResponse)
-async def boss_reward(
+def boss_reward(
     body: BossRewardRequest,
     x_internal_secret: str = Header(default=""),
 ):

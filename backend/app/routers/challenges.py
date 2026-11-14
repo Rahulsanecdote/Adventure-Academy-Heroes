@@ -65,7 +65,7 @@ def _ensure_progress(child_id: str, quest_id: str) -> dict:
 
 
 @router.post("/start", response_model=ChallengeStartResponse, status_code=status.HTTP_201_CREATED)
-async def start_challenge(data: ChallengeStartRequest, current_user: TokenData = Depends(get_current_user)):
+def start_challenge(data: ChallengeStartRequest, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(data.child_id, current_user)
 
     quest = quests_collection.find_one({"id": data.quest_id})
@@ -102,7 +102,7 @@ async def start_challenge(data: ChallengeStartRequest, current_user: TokenData =
 
 
 @router.post("/{challenge_id}/submit", response_model=ChallengeSubmitResponse)
-async def submit_challenge(
+def submit_challenge(
     challenge_id: str,
     data: ChallengeSubmitRequest,
     current_user: TokenData = Depends(get_current_user),
@@ -169,7 +169,7 @@ async def submit_challenge(
 
 
 @router.get("/child/{child_id}/evidence", response_model=SkillEvidenceReport)
-async def get_skill_evidence(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_skill_evidence(child_id: str, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
 
     attempts = list(attempts_collection.find({"child_id": child_id}))

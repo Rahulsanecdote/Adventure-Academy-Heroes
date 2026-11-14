@@ -118,7 +118,7 @@ def _set_stage(session_id: str, stage: str, **extra):
 # ---------------------------------------------------------------- the trail
 
 @router.get("/techniques", response_model=List[TechniquePublic])
-async def list_techniques(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def list_techniques(child_id: str, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
     mastered_ids = _mastered_ids(child_id)
     mastery = {m["technique_id"]: m for m in trick_mastery_collection.find({"child_id": child_id})}
@@ -136,7 +136,7 @@ async def list_techniques(child_id: str, current_user: TokenData = Depends(get_c
 # ---------------------------------------------------------------- stage 1: the Dare
 
 @router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_session(data: SessionCreateRequest, current_user: TokenData = Depends(get_current_user)):
+def create_session(data: SessionCreateRequest, current_user: TokenData = Depends(get_current_user)):
     child = _verify_child_access(data.child_id, current_user)
     technique = technique_by_id(data.technique_id)
     if not technique:
@@ -176,7 +176,7 @@ async def create_session(data: SessionCreateRequest, current_user: TokenData = D
 
 
 @router.post("/sessions/{session_id}/dare", response_model=DareSubmitResponse)
-async def submit_dare(session_id: str, data: DareSubmitRequest,
+def submit_dare(session_id: str, data: DareSubmitRequest,
                       current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "dare")
@@ -218,7 +218,7 @@ async def submit_dare(session_id: str, data: DareSubmitRequest,
 # ---------------------------------------------------------------- stage 2: the Reveal (mimic)
 
 @router.post("/sessions/{session_id}/reveal/mimic", response_model=MimicStartResponse)
-async def start_mimic(session_id: str, current_user: TokenData = Depends(get_current_user)):
+def start_mimic(session_id: str, current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "reveal")
 
@@ -232,7 +232,7 @@ async def start_mimic(session_id: str, current_user: TokenData = Depends(get_cur
 
 
 @router.post("/sessions/{session_id}/reveal/mimic/submit", response_model=MimicSubmitResponse)
-async def submit_mimic(session_id: str, data: StepAnswersRequest,
+def submit_mimic(session_id: str, data: StepAnswersRequest,
                        current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "reveal")
@@ -270,7 +270,7 @@ def _why_lab_payload(technique_id: str) -> WhyLabPayload:
 
 
 @router.get("/sessions/{session_id}/why", response_model=WhyLabPayload)
-async def get_why_lab(session_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_why_lab(session_id: str, current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "why_lab")
     return _why_lab_payload(session["technique_id"])
@@ -279,7 +279,7 @@ async def get_why_lab(session_id: str, current_user: TokenData = Depends(get_cur
 # ---------------------------------------------------------------- stage 3: the Why Lab
 
 @router.post("/sessions/{session_id}/why/submit", response_model=ProbeSubmitResponse)
-async def submit_probe(session_id: str, data: ProbeSubmitRequest,
+def submit_probe(session_id: str, data: ProbeSubmitRequest,
                        current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "why_lab")
@@ -314,7 +314,7 @@ def _guide_demo(technique_id: str, band: str) -> dict:
 
 
 @router.post("/sessions/{session_id}/side-by-side/next", response_model=RepPayload)
-async def next_rep(session_id: str, data: RepStartRequest,
+def next_rep(session_id: str, data: RepStartRequest,
                    current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "side_by_side")
@@ -361,7 +361,7 @@ async def next_rep(session_id: str, data: RepStartRequest,
 
 
 @router.post("/sessions/{session_id}/side-by-side/submit", response_model=RepSubmitResponse)
-async def submit_rep(session_id: str, data: RepSubmitRequest,
+def submit_rep(session_id: str, data: RepSubmitRequest,
                      current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "side_by_side")
@@ -449,7 +449,7 @@ def _build_remix_set(session: dict) -> List[dict]:
 
 
 @router.post("/sessions/{session_id}/remix/start", response_model=RemixStartResponse)
-async def start_remix(session_id: str, current_user: TokenData = Depends(get_current_user)):
+def start_remix(session_id: str, current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "remix")
 
@@ -472,7 +472,7 @@ async def start_remix(session_id: str, current_user: TokenData = Depends(get_cur
 
 
 @router.post("/sessions/{session_id}/remix/submit", response_model=RemixSubmitResponse)
-async def submit_remix(session_id: str, data: AnswersRequest,
+def submit_remix(session_id: str, data: AnswersRequest,
                        current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "remix")
@@ -504,7 +504,7 @@ async def submit_remix(session_id: str, data: AnswersRequest,
 # ---------------------------------------------------------------- stage 6: the Boss Gate
 
 @router.post("/sessions/{session_id}/boss/start", response_model=BossStartResponse)
-async def start_boss(session_id: str, current_user: TokenData = Depends(get_current_user)):
+def start_boss(session_id: str, current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "boss")
 
@@ -531,7 +531,7 @@ async def start_boss(session_id: str, current_user: TokenData = Depends(get_curr
 
 
 @router.post("/sessions/{session_id}/boss/submit", response_model=BossSubmitResponse)
-async def submit_boss(session_id: str, data: AnswersRequest,
+def submit_boss(session_id: str, data: AnswersRequest,
                       current_user: TokenData = Depends(get_current_user)):
     session = _get_session(session_id, current_user)
     _require_stage(session, "boss")
@@ -630,7 +630,7 @@ async def submit_boss(session_id: str, data: AnswersRequest,
 # ---------------------------------------------------------------- stage 7a: teach-back
 
 @router.get("/child/{child_id}/teach-back/{technique_id}", response_model=TeachBackPayload)
-async def get_teach_back(child_id: str, technique_id: str,
+def get_teach_back(child_id: str, technique_id: str,
                          current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
     technique = technique_by_id(technique_id)
@@ -660,7 +660,7 @@ async def get_teach_back(child_id: str, technique_id: str,
 
 
 @router.post("/teach-back/submit", response_model=TeachBackSubmitResponse)
-async def submit_teach_back(data: TeachBackSubmitRequest,
+def submit_teach_back(data: TeachBackSubmitRequest,
                             current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(data.child_id, current_user)
     technique = technique_by_id(data.technique_id)
@@ -721,7 +721,7 @@ def _encore_public(encore: dict) -> EncorePublic:
 
 
 @router.get("/child/{child_id}/encores", response_model=List[EncorePublic])
-async def list_encores(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def list_encores(child_id: str, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
     encores = list(trick_encores_collection.find({"child_id": child_id}))
     encores.sort(key=lambda e: (e["due_at"]))
@@ -729,7 +729,7 @@ async def list_encores(child_id: str, current_user: TokenData = Depends(get_curr
 
 
 @router.post("/encores/{encore_id}/start", response_model=EncoreStartResponse)
-async def start_encore(encore_id: str, current_user: TokenData = Depends(get_current_user)):
+def start_encore(encore_id: str, current_user: TokenData = Depends(get_current_user)):
     encore = trick_encores_collection.find_one({"id": encore_id})
     if not encore:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encore not found")
@@ -750,7 +750,7 @@ async def start_encore(encore_id: str, current_user: TokenData = Depends(get_cur
 
 
 @router.post("/encores/{encore_id}/submit", response_model=EncoreSubmitResponse)
-async def submit_encore(encore_id: str, data: AnswersRequest,
+def submit_encore(encore_id: str, data: AnswersRequest,
                         current_user: TokenData = Depends(get_current_user)):
     encore = trick_encores_collection.find_one({"id": encore_id})
     if not encore:
@@ -820,6 +820,6 @@ def build_technique_evidence(child_id: str) -> List[TechniqueEvidence]:
 
 
 @router.get("/child/{child_id}/evidence", response_model=List[TechniqueEvidence])
-async def get_technique_evidence(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_technique_evidence(child_id: str, current_user: TokenData = Depends(get_current_user)):
     _verify_child_access(child_id, current_user)
     return build_technique_evidence(child_id)

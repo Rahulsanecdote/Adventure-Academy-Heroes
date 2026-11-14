@@ -548,7 +548,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
             <div>
               <h2 className="text-3xl font-game font-bold text-center text-gray-800 mb-4">🎭 The Reveal</h2>
               <div className="text-center text-2xl font-bold text-gray-700 mb-4">
-                {dareResult.reveal.prompt} = {revealStep >= dareResult.reveal.performance.length - 1 ? dareResult.reveal.answer : '?'}
+                {dareResult.reveal.prompt.replace(/=\s*\?\s*$/, '')} = {revealStep >= dareResult.reveal.performance.length - 1 ? dareResult.reveal.answer : '?'}
               </div>
               {dareResult.reveal.visual && revealStep >= 1 && (
                 <div className="mb-4"><TrickVisual visual={dareResult.reveal.visual} /></div>
@@ -662,7 +662,7 @@ const TrickSession: React.FC<TrickSessionProps> = ({ childId, technique, onExit 
                   {rep.mode === 'along' && rep.guide_demo && (
                     <div className="bg-green-50 border-4 border-green-300 rounded-2xl p-4 mb-4">
                       <div className="font-game font-bold text-green-800 mb-2">
-                        🧭 Watch the guide do one: {rep.guide_demo.prompt} = {rep.guide_demo.answer}
+                        🧭 Watch the guide do one: {rep.guide_demo.prompt.replace(/=\s*\?\s*$/, '')} = {rep.guide_demo.answer}
                       </div>
                       {rep.guide_demo.steps.map((s, i) => (
                         <div key={i} className="font-semibold text-gray-700">

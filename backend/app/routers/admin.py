@@ -28,7 +28,7 @@ class BadgeCreate(BaseModel):
     rarity: str = "common"
 
 @router.post("/quests", response_model=Quest, status_code=status.HTTP_201_CREATED)
-async def create_quest(quest_data: QuestCreate, current_user: TokenData = Depends(get_current_admin)):
+def create_quest(quest_data: QuestCreate, current_user: TokenData = Depends(get_current_admin)):
     # Create quest
     quest_dict = quest_data.model_dump(exclude={"steps"})
     quest_dict["id"] = str(uuid.uuid4())
@@ -51,7 +51,7 @@ async def create_quest(quest_data: QuestCreate, current_user: TokenData = Depend
     return Quest(**quest_dict)
 
 @router.put("/quests/{quest_id}", response_model=Quest)
-async def update_quest(quest_id: str, quest_data: QuestCreate, current_user: TokenData = Depends(get_current_admin)):
+def update_quest(quest_id: str, quest_data: QuestCreate, current_user: TokenData = Depends(get_current_admin)):
     quest = quests_collection.find_one({"id": quest_id})
     if not quest:
         raise HTTPException(
@@ -80,7 +80,7 @@ async def update_quest(quest_id: str, quest_data: QuestCreate, current_user: Tok
     return Quest(**updated_quest)
 
 @router.delete("/quests/{quest_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_quest(quest_id: str, current_user: TokenData = Depends(get_current_admin)):
+def delete_quest(quest_id: str, current_user: TokenData = Depends(get_current_admin)):
     quest = quests_collection.find_one({"id": quest_id})
     if not quest:
         raise HTTPException(
@@ -92,7 +92,7 @@ async def delete_quest(quest_id: str, current_user: TokenData = Depends(get_curr
     return None
 
 @router.post("/cosmetics", response_model=Cosmetic, status_code=status.HTTP_201_CREATED)
-async def create_cosmetic(cosmetic_data: CosmeticCreate, current_user: TokenData = Depends(get_current_admin)):
+def create_cosmetic(cosmetic_data: CosmeticCreate, current_user: TokenData = Depends(get_current_admin)):
     cosmetic_dict = cosmetic_data.model_dump()
     cosmetic_dict["id"] = str(uuid.uuid4())
     cosmetic_dict["created_at"] = datetime.utcnow()
@@ -101,6 +101,6 @@ async def create_cosmetic(cosmetic_data: CosmeticCreate, current_user: TokenData
     return Cosmetic(**cosmetic_dict)
 
 @router.get("/cosmetics", response_model=List[Cosmetic])
-async def get_cosmetics(current_user: TokenData = Depends(get_current_admin)):
+def get_cosmetics(current_user: TokenData = Depends(get_current_admin)):
     cosmetics = list(cosmetics_collection.find())
     return [Cosmetic(**c) for c in cosmetics]
