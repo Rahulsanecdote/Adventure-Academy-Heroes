@@ -34,7 +34,12 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
   const [showNPCDialog, setShowNPCDialog] = useState(false);
   const [npcMessage, setNpcMessage] = useState('');
   const [npcName, setNpcName] = useState('');
-  const [showControls, setShowControls] = useState(true);
+  // Mobile HUD: on small screens the controls card starts closed (it can be
+  // reopened anytime with the 🎮 Controls button). On desktop it starts open
+  // and auto-hides via the timer in the engine effect below.
+  const [showControls, setShowControls] = useState(
+    () => typeof window === 'undefined' || window.innerWidth >= 640
+  );
   
   // Portal proximity state
   const [nearPortal, setNearPortal] = useState<PortalData | null>(null);
@@ -126,11 +131,14 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
     });
     mp.connect(engine, 'hub').then((ok) => setMpOnline(ok));
 
-    // Hide controls help after 5 seconds
-    const timer = setTimeout(() => setShowControls(false), 5000);
+    // Hide controls help after 5 seconds (desktop only — on mobile the card
+    // starts closed, and a manually opened card must not vanish mid-read)
+    const timer = window.innerWidth >= 640
+      ? setTimeout(() => setShowControls(false), 5000)
+      : undefined;
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       void mp.disconnect();
       mpRef.current = null;
       engine.dispose();
@@ -176,35 +184,46 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
       {/* HUD Overlay */}
       <div className="absolute top-4 left-4 right-4 pointer-events-none">
-        <div className="flex justify-between items-start">
-          {/* Player Info */}
-          <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-blue p-4 pointer-events-auto">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="text-3xl">🎮</div>
-              <div>
-                <div className="font-display font-bold text-white text-xl">
-                  {childProfile.username}
+        <div className="flex flex-wrap justify-between items-start gap-2">
+          {/* Player Info (+ multiplayer status docked underneath, so it can
+              never collide with the top-right buttons or the controls card) */}
+          <div className="flex flex-col items-start gap-2">
+            <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-blue p-3 sm:p-4 pointer-events-auto">
+              <div className="flex items-center gap-2 sm:gap-3 sm:mb-2">
+                <div className="text-2xl sm:text-3xl">🎮</div>
+                <div>
+                  <div className="font-display font-bold text-white text-lg sm:text-xl leading-tight">
+                    {childProfile.username}
+                  </div>
+                  <div className="text-roblox-yellow font-semibold text-sm sm:text-base">Level {childProfile.level}</div>
                 </div>
-                <div className="text-roblox-yellow font-semibold">Level {childProfile.level}</div>
+              </div>
+              <div className="flex sm:grid sm:grid-cols-2 gap-2 sm:gap-3 mt-2 sm:mt-3">
+                <div className="bg-roblox-purple/30 rounded-lg px-2 py-0.5 sm:px-3 sm:py-1">
+                  <span className="text-xs text-white/70 sm:block">XP</span>
+                  <span className="font-bold text-white ml-1 sm:ml-0">{childProfile.total_xp}</span>
+                </div>
+                <div className="bg-roblox-yellow/30 rounded-lg px-2 py-0.5 sm:px-3 sm:py-1">
+                  <span className="text-xs text-white/70 sm:block">Coins</span>
+                  <span className="font-bold text-white ml-1 sm:ml-0">🪙 {childProfile.coins}</span>
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div className="bg-roblox-purple/30 rounded-lg px-3 py-1">
-                <div className="text-xs text-white/70">XP</div>
-                <div className="font-bold text-white">{childProfile.total_xp}</div>
+
+            {/* Multiplayer Status (Phase 2) */}
+            {mpOnline === true && (
+              <div className="bg-green-900/80 backdrop-blur-sm rounded-full border-2 border-green-400 px-3 py-0.5 sm:px-4 sm:py-1">
+                <span className="text-white font-bold text-xs sm:text-sm">🟢 Online</span>
               </div>
-              <div className="bg-roblox-yellow/30 rounded-lg px-3 py-1">
-                <div className="text-xs text-white/70">Coins</div>
-                <div className="font-bold text-white">🪙 {childProfile.coins}</div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Controls Help */}
+          {/* Controls Help — drops to a full-width row under the top bar on
+              mobile (clear of the Exit / Trick Academy buttons); side card on desktop */}
           {showControls && (
-            <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-white p-4 pointer-events-auto animate-fade-in">
-              <div className="font-display font-bold text-white text-lg mb-2">🎮 Controls</div>
-              <div className="space-y-1 text-sm text-white/90">
+            <div className="order-3 sm:order-none w-full sm:w-auto mt-14 sm:mt-0 bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-white p-3 sm:p-4 pointer-events-auto animate-fade-in">
+              <div className="font-display font-bold text-white text-base sm:text-lg mb-2">🎮 Controls</div>
+              <div className="space-y-1 text-xs sm:text-sm text-white/90">
                 <div><strong>WASD</strong> - Move around</div>
                 <div><strong>Click ground</strong> - Walk there</div>
                 <div><strong>Space</strong> - Jump</div>
@@ -224,10 +243,10 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       </div>
 
       {/* Quest Objective */}
-      <div className="absolute bottom-4 left-4 pointer-events-none">
-        <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-green p-4 pointer-events-auto">
-          <div className="font-display font-bold text-white text-lg mb-2">🎯 Objective</div>
-          <div className="text-white/90">
+      <div className="absolute bottom-4 left-4 right-4 sm:right-auto pointer-events-none">
+        <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-green p-3 sm:p-4 pointer-events-auto sm:max-w-md">
+          <div className="font-display font-bold text-white text-base sm:text-lg mb-1 sm:mb-2">🎯 Objective</div>
+          <div className="text-white/90 text-sm sm:text-base">
             {currentWorld === 'math_jungle'
               ? 'Find a glowing number totem and press E to start its quest!'
               : 'Explore the hub and find quest portals!'}
@@ -237,7 +256,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
       {/* Current World Banner (Phase 1) */}
       {currentWorld === 'math_jungle' && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
+        <div className="absolute top-32 sm:top-4 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
           <div className="bg-green-900/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-2 text-center">
             <span className="text-white font-display font-bold text-lg">🌴 Math Jungle</span>
           </div>
@@ -246,29 +265,21 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
       {/* Multiplayer Status (Phase 2) */}
       {mpOnline === false && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
+        <div className="absolute top-32 sm:top-20 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
           <div className="bg-gray-900/85 backdrop-blur-sm rounded-2xl border-4 border-gray-400 px-5 py-2 text-center">
             <span className="text-white font-display font-bold">📴 Offline mode — playing solo</span>
           </div>
         </div>
       )}
-      {mpOnline === true && (
-        <div className="absolute top-20 right-4 z-40 pointer-events-none">
-          <div className="bg-green-900/80 backdrop-blur-sm rounded-full border-2 border-green-400 px-4 py-1">
-            <span className="text-white font-bold text-sm">🟢 Online</span>
-          </div>
-        </div>
-      )}
-
       {/* Phrase Chat Bar (Phase 2) — allowlisted phrases only, no free text */}
       {mpOnline === true && (
-        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-40">
-          <div className="flex flex-wrap justify-center gap-2 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-2 max-w-2xl">
+        <div className="absolute bottom-24 left-2 right-2 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-40">
+          <div className="flex flex-nowrap sm:flex-wrap justify-start sm:justify-center gap-2 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-2 max-w-full sm:max-w-2xl overflow-x-auto sm:overflow-visible">
             {PHRASES.map((phrase) => (
               <button
                 key={phrase.id}
                 onClick={() => mpRef.current?.sendPhrase(phrase.id)}
-                className="bg-roblox-blue/80 hover:bg-roblox-blue text-white text-sm font-semibold rounded-full px-3 py-1 transition"
+                className="bg-roblox-blue/80 hover:bg-roblox-blue text-white text-sm font-semibold rounded-full px-3 py-1 transition whitespace-nowrap shrink-0"
               >
                 {phrase.label}
               </button>
@@ -279,7 +290,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
       {/* Co-op Boss Panel (Phase 2, Math Jungle) */}
       {currentWorld === 'math_jungle' && (
-        <div className="absolute bottom-40 right-4 z-40 w-72">
+        <div className="absolute bottom-36 sm:bottom-40 right-4 z-40 w-[calc(100vw-2rem)] sm:w-72">
           <div className="bg-black/75 backdrop-blur-sm rounded-2xl border-4 border-red-400 p-4">
             <div className="font-display font-bold text-white text-lg mb-2">👹 Jungle Boss</div>
             {bossVictory ? (
@@ -362,7 +373,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       {/* Quest Station Proximity Prompt (Phase 1) */}
       {nearStation !== null && currentWorld === 'math_jungle' && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 animate-bounce">
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-4 text-center">
+          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 border-green-400 px-6 py-4 text-center max-w-[calc(100vw-2rem)]">
             <div className="text-3xl mb-2">🔢</div>
             <div className="text-white font-bold text-lg">Quest Totem {nearStation + 1}</div>
             <div className="text-yellow-400 font-semibold mt-2 animate-pulse">
@@ -375,7 +386,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       {/* Portal Proximity Prompt - floating above player */}
       {nearPortal && !showPortalConfirm && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-40 animate-bounce">
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 px-6 py-4 text-center"
+          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border-4 px-6 py-4 text-center max-w-[calc(100vw-2rem)]"
                style={{ borderColor: `rgb(${nearPortal.color.r * 255}, ${nearPortal.color.g * 255}, ${nearPortal.color.b * 255})` }}>
             <div className="text-3xl mb-2">{getPortalEmoji(nearPortal.worldKey)}</div>
             <div className="text-white font-bold text-lg">{nearPortal.name}</div>
