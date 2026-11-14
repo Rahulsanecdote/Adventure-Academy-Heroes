@@ -23,7 +23,7 @@ export interface PlayerControllerCallbacks {
 }
 
 // Per-second equivalents of the old per-frame constants (tuned at 60 fps):
-const WALK_SPEED = 9; // units/sec   (was 0.15/frame)
+const WALK_SPEED = 8; // units/sec   (was 0.15/frame at 9; eased to 8 with smoothing)
 const JUMP_VELOCITY = 15; // units/sec (was 0.25/frame)
 const GRAVITY = -54; // units/sec^2    (was -0.015/frame^2)
 const WALK_CYCLE_RATE = 9; // rad/sec    (was 0.15/frame)
@@ -35,8 +35,14 @@ export class PlayerController {
   private scene: BABYLON.Scene;
   private playerRoot: BABYLON.TransformNode;
   private collider: BABYLON.Mesh;
-  private getCamera: () => BABYLON.FollowCamera | null;
+  private getCamera: () => BABYLON.ArcRotateCamera | null;
   private callbacks: PlayerControllerCallbacks;
+
+  // Smoothed horizontal velocity (units/sec). Input sets a DESIRED
+  // velocity; the actual velocity eases toward it, so starts, stops and
+  // direction changes glide instead of snapping — the "uncomfortable
+  // motion" fix. Facing and the walk cycle follow the real velocity.
+  private velocity = new BABYLON.Vector3();
 
   private keys: { [key: string]: boolean } = {};
   private isJumping = false;
@@ -62,7 +68,7 @@ export class PlayerController {
     scene: BABYLON.Scene,
     playerRoot: BABYLON.TransformNode,
     collider: BABYLON.Mesh,
-    getCamera: () => BABYLON.FollowCamera | null,
+    getCamera: () => BABYLON.ArcRotateCamera | null,
     callbacks: PlayerControllerCallbacks = {}
   ) {
     this.scene = scene;
@@ -149,7 +155,6 @@ export class PlayerController {
     }
 
     const hasDirectInput = moveX !== 0 || moveZ !== 0;
-    this.isMoving = hasDirectInput || this.moveTarget !== null;
 
     // Camera-relative ground-plane basis
     const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
@@ -157,9 +162,8 @@ export class PlayerController {
     cameraDirection.normalize();
     const cameraRight = BABYLON.Vector3.Cross(cameraDirection, BABYLON.Axis.Y);
 
-    let displacement: BABYLON.Vector3 | null = null;
-    let facingAngle: number | null = null;
-
+    // 1) Desired velocity from the active input source (units/sec).
+    const desired = new BABYLON.Vector3();
     if (hasDirectInput) {
       const input = new BABYLON.Vector3(moveX, 0, moveZ);
       const inputLength = input.length();
@@ -172,45 +176,53 @@ export class PlayerController {
         .add(cameraRight.scale(-input.x));
       if (movement.lengthSquared() > 0.0001) {
         movement.normalize();
-        displacement = movement.scale(WALK_SPEED * strength * step);
-        facingAngle = Math.atan2(movement.x, movement.z);
+        desired.copyFrom(movement.scale(WALK_SPEED * strength));
       }
-      this.walkCycle += WALK_CYCLE_RATE * step * (strength > 0 ? strength : 1);
-      this.animateWalk();
     } else if (this.moveTarget) {
       const toTarget = this.moveTarget.subtract(this.playerRoot.position);
       toTarget.y = 0;
       const distance = toTarget.length();
 
-      if (distance < 0.25) {
+      if (distance < 0.3) {
         this.moveTarget = null;
-        this.isMoving = false;
       } else {
-        const travel = Math.min(WALK_SPEED * step, distance);
-        const dir = toTarget.normalize();
-        displacement = dir.scale(travel);
-        facingAngle = Math.atan2(dir.x, dir.z);
-        this.walkCycle += WALK_CYCLE_RATE * step;
-        this.animateWalk();
+        // Ease into the target over the last ~1.2 units instead of
+        // arriving at full speed and stopping dead.
+        const arriveScale = Math.min(1, Math.max(0.25, distance / 1.2));
+        desired.copyFrom(toTarget.normalize().scale(WALK_SPEED * arriveScale));
       }
-    } else {
-      this.idleTime += step;
-      this.animateIdle();
     }
 
-    // Smooth facing turn (shortest arc) instead of an instant snap.
-    if (facingAngle !== null) {
-      let delta = facingAngle - this.playerRoot.rotation.y;
-      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-      const t = 1 - Math.exp(-TURN_RATE * step);
-      this.playerRoot.rotation.y += delta * t;
-    }
+    // 2) Ease the real velocity toward the desired one. ~10/s blend:
+    // responsive, but starts/stops/turns glide over ~200 ms instead of
+    // snapping — this is most of the "smooth motion" feel.
+    const blend = 1 - Math.exp(-10 * step);
+    this.velocity.x += (desired.x - this.velocity.x) * blend;
+    this.velocity.z += (desired.z - this.velocity.z) * blend;
 
-    // Real collision movement: run the horizontal displacement through
-    // Babylon's collision solver via the player's capsule collider, then
-    // adopt the solved position. Vertical motion (jump/gravity) stays
-    // scripted below, exactly as before.
-    if (displacement && displacement.lengthSquared() > 0) {
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
+    if (!hasDirectInput && !this.moveTarget && speed < 0.12) {
+      this.velocity.set(0, 0, 0);
+    }
+    const activeSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    this.isMoving = hasDirectInput || this.moveTarget !== null || activeSpeed > 0.35;
+
+    // 3) Animate + face along the REAL velocity, and move through the
+    // collision solver (trees/NPCs/totems stop the capsule; vertical
+    // jump/gravity stays scripted below).
+    if (activeSpeed > 0.05) {
+      this.walkCycle += WALK_CYCLE_RATE * step * (activeSpeed / WALK_SPEED);
+      this.animateWalk();
+
+      if (activeSpeed > 0.5) {
+        const facingAngle = Math.atan2(this.velocity.x, this.velocity.z);
+        let delta = facingAngle - this.playerRoot.rotation.y;
+        delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+        const t = 1 - Math.exp(-TURN_RATE * step);
+        this.playerRoot.rotation.y += delta * t;
+      }
+
+      const displacement = this.velocity.scale(step);
       this.collider.position.set(
         this.playerRoot.position.x,
         this.playerRoot.position.y + COLLIDER_Y_OFFSET,
@@ -219,6 +231,9 @@ export class PlayerController {
       this.collider.moveWithCollisions(displacement);
       this.playerRoot.position.x = this.collider.position.x;
       this.playerRoot.position.z = this.collider.position.z;
+    } else {
+      this.idleTime += step;
+      this.animateIdle();
     }
 
     // Handle jumping (per-second gravity)
