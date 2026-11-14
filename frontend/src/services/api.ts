@@ -405,9 +405,15 @@ export interface GameSession {
 
 export const multiplayerAPI = {
   sessionToken: async (childId: string): Promise<GameSession> => {
-    const response = await api.post<GameSession>('/api/multiplayer/session-token', {
-      child_id: childId,
-    });
+    // Longer timeout than the global 15s: this call crosses the
+    // database-backed API, whose slow path can take most of 15s; with
+    // the global timeout a merely-slow (not failed) call aborted the
+    // whole multiplayer connect. HubWorld also retries the connect.
+    const response = await api.post<GameSession>(
+      '/api/multiplayer/session-token',
+      { child_id: childId },
+      { timeout: 30000 }
+    );
     return response.data;
   },
 };

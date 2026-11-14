@@ -141,7 +141,25 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
         if (!active) setBossQuestion(null);
       },
     });
-    mp.connect(engine, 'hub').then((ok) => setMpOnline(ok));
+    // Connect with retries: the session-token call crosses the backend,
+    // whose database path can stall for 10s+; one slow call used to drop
+    // the player into offline mode for the entire session. Try up to 3
+    // times (2.5s apart) before settling for offline.
+    let connectCancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const ok = await mp.connect(engine, 'hub');
+        if (connectCancelled) return;
+        if (ok) {
+          setMpOnline(true);
+          return;
+        }
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+        }
+      }
+      if (!connectCancelled) setMpOnline(false);
+    })();
 
     // Hide controls help after 5 seconds (keyboard desktops only — elsewhere
     // the card starts closed, and a manually opened card must not vanish)
@@ -150,6 +168,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
       : undefined;
 
     return () => {
+      connectCancelled = true;
       if (timer) clearTimeout(timer);
       void mp.disconnect();
       mpRef.current = null;
@@ -180,7 +199,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
   const joyBaseRef = useRef<HTMLDivElement>(null);
   const joyPointerRef = useRef<number | null>(null);
   const [knobOffset, setKnobOffset] = useState({ x: 0, y: 0 });
-  const JOY_RADIUS = 36;
+  const JOY_RADIUS = 30;
 
   const updateJoystick = useCallback((clientX: number, clientY: number) => {
     const base = joyBaseRef.current;
@@ -229,14 +248,14 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
           {/* Player Info (+ multiplayer status docked underneath, so it can
               never collide with the top-right buttons or the controls card) */}
           <div className="flex flex-col items-start gap-2">
-            <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-blue p-3 sm:p-4 pointer-events-auto">
+            <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-blue p-2 sm:p-4 pointer-events-auto">
               <div className="flex items-center gap-2 sm:gap-3 sm:mb-2">
-                <div className="text-2xl sm:text-3xl">🎮</div>
+                <div className="text-xl sm:text-3xl">🎮</div>
                 <div>
-                  <div className="font-display font-bold text-white text-lg sm:text-xl leading-tight">
+                  <div className="font-display font-bold text-white text-base sm:text-xl leading-tight">
                     {childProfile.username}
                   </div>
-                  <div className="text-roblox-yellow font-semibold text-sm sm:text-base">Level {childProfile.level}</div>
+                  <div className="text-roblox-yellow font-semibold text-xs sm:text-base">Level {childProfile.level}</div>
                 </div>
               </div>
               <div className="flex sm:grid sm:grid-cols-2 gap-2 sm:gap-3 mt-2 sm:mt-3">
@@ -273,7 +292,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
                     <div><strong>Tap ground</strong> - Walk there</div>
                     <div><strong>Tap people</strong> - Talk to them</div>
                     <div><strong>Tap the prompt</strong> - Enter portals &amp; start quests</div>
-                    <div><strong>⬆️ Button</strong> - Jump</div>
+                    <div><strong>↑ Button</strong> - Jump</div>
                   </>
                 ) : (
                   <>
@@ -297,11 +316,15 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
         </div>
       </div>
 
-      {/* Quest Objective */}
-      <div className="absolute bottom-4 left-4 right-4 sm:right-auto pointer-events-none">
-        <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-green p-3 sm:p-4 pointer-events-auto sm:max-w-md">
-          <div className="font-display font-bold text-white text-base sm:text-lg mb-1 sm:mb-2">🎯 Objective</div>
-          <div className="text-white/90 text-sm sm:text-base">
+      {/* Quest Objective — on phones this is a slim one-bar strip (title
+          inline, tighter padding, and it stops short of the Controls
+          button instead of running underneath it) so the bottom of the
+          screen isn't a solid wall of panels. */}
+      <div className="absolute bottom-4 left-4 right-[8.5rem] sm:right-auto pointer-events-none">
+        <div className="bg-black/70 backdrop-blur-sm rounded-2xl border-4 border-roblox-green px-3 py-2 sm:p-4 pointer-events-auto sm:max-w-md">
+          <div className="hidden sm:block font-display font-bold text-white text-base sm:text-lg mb-1 sm:mb-2">🎯 Objective</div>
+          <div className="text-white/90 text-xs sm:text-base line-clamp-2 sm:line-clamp-none">
+            <span className="sm:hidden">🎯 </span>
             {currentWorld === 'math_jungle'
               ? touchUI
                 ? 'Find a glowing number totem and tap its prompt to start its quest!'
@@ -322,15 +345,15 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
 
       {/* Multiplayer Status (Phase 2) */}
       {mpOnline === false && (
-        <div className="absolute top-32 sm:top-20 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
-          <div className="bg-gray-900/85 backdrop-blur-sm rounded-2xl border-4 border-gray-400 px-5 py-2 text-center">
-            <span className="text-white font-display font-bold">📴 Offline mode — playing solo</span>
+        <div className="absolute top-[6.5rem] sm:top-20 left-1/2 transform -translate-x-1/2 z-40 pointer-events-none">
+          <div className="bg-gray-900/85 backdrop-blur-sm rounded-full border-2 border-gray-400 px-4 py-1 text-center whitespace-nowrap">
+            <span className="text-white font-display font-bold text-xs sm:text-sm">📴 Offline mode — playing solo</span>
           </div>
         </div>
       )}
       {/* Phrase Chat Bar (Phase 2) — allowlisted phrases only, no free text */}
       {mpOnline === true && (
-        <div className="absolute bottom-24 left-2 right-2 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-40">
+        <div className="absolute bottom-[4.5rem] sm:bottom-24 left-2 right-2 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-40">
           <div className="flex flex-nowrap sm:flex-wrap justify-start sm:justify-center gap-2 bg-black/60 backdrop-blur-sm rounded-2xl px-3 py-2 max-w-full sm:max-w-2xl overflow-x-auto sm:overflow-visible">
             {PHRASES.map((phrase) => (
               <button
@@ -481,7 +504,7 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
             ref={joyBaseRef}
             role="application"
             aria-label="Move joystick"
-            className="absolute left-3 top-[54%] z-40 w-28 h-28 rounded-full bg-black/40 backdrop-blur-sm border-2 border-white/40 touch-none select-none"
+            className="absolute left-3 top-[54%] z-40 w-24 h-24 rounded-full bg-black/30 backdrop-blur-sm border-2 border-white/40 touch-none select-none"
             onPointerDown={(e) => {
               joyPointerRef.current = e.pointerId;
               e.currentTarget.setPointerCapture(e.pointerId);
@@ -496,10 +519,10 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
             onPointerCancel={releaseJoystick}
           >
             <div
-              className="absolute w-12 h-12 rounded-full bg-white/70 shadow-lg pointer-events-none"
+              className="absolute w-11 h-11 rounded-full bg-white/70 shadow-lg pointer-events-none"
               style={{
-                left: `calc(50% - 24px + ${knobOffset.x}px)`,
-                top: `calc(50% - 24px + ${knobOffset.y}px)`,
+                left: `calc(50% - 22px + ${knobOffset.x}px)`,
+                top: `calc(50% - 22px + ${knobOffset.y}px)`,
               }}
             />
           </div>
@@ -507,9 +530,9 @@ export const HubWorld: React.FC<HubWorldProps> = ({ childProfile, onPortalEnter,
             type="button"
             aria-label="Jump"
             onClick={() => engineRef.current?.jump()}
-            className="absolute right-3 top-[54%] z-40 w-14 h-14 rounded-full bg-roblox-blue/80 border-2 border-white/50 text-white text-2xl backdrop-blur-sm active:bg-roblox-blue touch-none select-none"
+            className="absolute right-3 top-[54%] z-40 w-14 h-14 rounded-full bg-roblox-blue/80 border-2 border-white/50 text-white text-3xl font-black backdrop-blur-sm active:bg-roblox-blue touch-none select-none"
           >
-            ⬆️
+            ↑
           </button>
         </>
       )}

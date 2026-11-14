@@ -104,7 +104,8 @@ export class GameEngine {
   private canvas: HTMLCanvasElement;
   private engine: BABYLON.Engine;
   private scene: BABYLON.Scene;
-  private camera: BABYLON.FollowCamera | null = null;
+  private camera: BABYLON.ArcRotateCamera | null = null;
+  private cameraTargetDesired = new BABYLON.Vector3();
   private playerRoot: BABYLON.TransformNode | null = null;
   private avatarMeshes: BABYLON.Mesh[] = [];
   private config: GameConfig;
@@ -244,6 +245,13 @@ export class GameEngine {
         : new BABYLON.Vector3(0, 0, 0);
       this.playerRoot.rotation = new BABYLON.Vector3(0, 0, 0);
       this.controller?.setMoveTarget(null);
+      // Snap the camera target to the spawn point — otherwise the
+      // smooth-follow would glide it across the whole map.
+      this.camera?.setTarget(new BABYLON.Vector3(
+        this.playerRoot.position.x,
+        this.playerRoot.position.y + 1.5,
+        this.playerRoot.position.z
+      ));
     }
 
     this.config.onWorldChange?.(key);
@@ -315,15 +323,33 @@ export class GameEngine {
   private createCamera(): void {
     if (!this.playerRoot) return;
 
-    this.camera = new BABYLON.FollowCamera('followCam', new BABYLON.Vector3(0, 2, -6), this.scene);
-    this.camera.lockedTarget = this.playerRoot as unknown as BABYLON.AbstractMesh;
-    // Slightly wider framing than the original radius 6: on a phone the
-    // avatar filled the screen and nearby portals/totems were off-camera.
-    this.camera.radius = 7.5;
-    this.camera.heightOffset = 2.2;
-    this.camera.rotationOffset = 180;
-    this.camera.cameraAcceleration = 0.05;
-    this.camera.maxCameraSpeed = 10;
+    // ArcRotateCamera follow rig — the standard third-person setup (and
+    // what open-source Babylon character controllers use). The old
+    // FollowCamera had NO angle limits: its touch drags drive an
+    // unbounded height offset, so the camera could end up under the
+    // floor looking up at the avatar's legs, or directly overhead —
+    // exactly what Rahul's Nov 13 screenshots showed. ArcRotate's beta
+    // and radius limits make those states impossible. The camera target
+    // is glided toward the player in the render loop, which gives the
+    // soft drone-like follow instead of a rigid lock.
+    const start = new BABYLON.Vector3(
+      this.playerRoot.position.x,
+      this.playerRoot.position.y + 1.5,
+      this.playerRoot.position.z
+    );
+    this.camera = new BABYLON.ArcRotateCamera('arcCam', -Math.PI / 2, 1.2, 9.5, start, this.scene);
+    // Deterministic opening framing: behind the player, slightly above.
+    this.camera.setPosition(new BABYLON.Vector3(start.x, start.y + 3.4, start.z - 8.8));
+    this.camera.lowerBetaLimit = 0.85; // never fully top-down
+    this.camera.upperBetaLimit = 1.48; // never below the ground plane
+    this.camera.lowerRadiusLimit = 5.5;
+    this.camera.upperRadiusLimit = 13;
+    this.camera.panningSensibility = 0; // drags orbit; they must not slide the target away
+    this.camera.inertia = 0.8;
+    this.camera.angularSensibilityX = 1200;
+    this.camera.angularSensibilityY = 1200;
+    // Arrow keys belong to the player controller, not the camera.
+    this.camera.inputs.removeByType('ArcRotateCameraKeyboardMoveInput');
     this.camera.attachControl();
   }
 
@@ -507,6 +533,19 @@ export class GameEngine {
       // speed and jump physics are identical at 30/60/120 fps.
       const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.05);
       this.controller?.update(dt);
+      // Smooth-follow: glide the orbit camera's target toward the player
+      // so the view trails softly instead of locking to every step.
+      if (this.camera && this.playerRoot) {
+        this.cameraTargetDesired.set(
+          this.playerRoot.position.x,
+          this.playerRoot.position.y + 1.5,
+          this.playerRoot.position.z
+        );
+        const followT = 1 - Math.exp(-8 * dt);
+        this.camera.setTarget(
+          BABYLON.Vector3.Lerp(this.camera.getTarget(), this.cameraTargetDesired, followT)
+        );
+      }
       this.checkPortalProximity();
       this.checkStationProximity();
       this.updateRemotes();
