@@ -21,7 +21,7 @@ def calculate_level(xp: int) -> int:
     return max(1, math.floor(xp / 100) + 1)
 
 @router.post("/start-quest", response_model=QuestProgress, status_code=status.HTTP_201_CREATED)
-async def start_quest(data: QuestProgressCreate, current_user: TokenData = Depends(get_current_user)):
+def start_quest(data: QuestProgressCreate, current_user: TokenData = Depends(get_current_user)):
     # Verify child access
     child = children_collection.find_one({"id": data.child_id})
     if not child or (child["parent_id"] != current_user.user_id and current_user.role != "admin"):
@@ -54,7 +54,7 @@ async def start_quest(data: QuestProgressCreate, current_user: TokenData = Depen
     return QuestProgress(**progress_dict)
 
 @router.patch("/{progress_id}", response_model=QuestProgress)
-async def update_quest_progress(
+def update_quest_progress(
     progress_id: str,
     update_data: QuestProgressUpdate,
     current_user: TokenData = Depends(get_current_user)
@@ -84,7 +84,7 @@ async def update_quest_progress(
     return QuestProgress(**updated_progress)
 
 @router.post("/complete-quest/{progress_id}", response_model=RewardCeremony)
-async def complete_quest(progress_id: str, current_user: TokenData = Depends(get_current_user)):
+def complete_quest(progress_id: str, current_user: TokenData = Depends(get_current_user)):
     progress = progress_collection.find_one({"id": progress_id})
     if not progress:
         raise HTTPException(
@@ -140,7 +140,7 @@ async def complete_quest(progress_id: str, current_user: TokenData = Depends(get
     return RewardCeremony(**reward_data)
 
 @router.get("/child/{child_id}", response_model=List[QuestProgress])
-async def get_child_progress(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_child_progress(child_id: str, current_user: TokenData = Depends(get_current_user)):
     # Verify access
     child = children_collection.find_one({"id": child_id})
     if not child or (child["parent_id"] != current_user.user_id and current_user.role != "admin"):
@@ -153,7 +153,7 @@ async def get_child_progress(child_id: str, current_user: TokenData = Depends(ge
     return [QuestProgress(**p) for p in progress_list]
 
 @router.get("/child/{child_id}/stats")
-async def get_child_stats(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_child_stats(child_id: str, current_user: TokenData = Depends(get_current_user)):
     # Verify access
     child = children_collection.find_one({"id": child_id})
     if not child or (child["parent_id"] != current_user.user_id and current_user.role != "admin"):

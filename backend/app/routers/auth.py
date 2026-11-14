@@ -10,7 +10,7 @@ import uuid
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/signup", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def signup(user_data: UserCreate):
+def signup(user_data: UserCreate):
     # Check if user exists
     existing_user = users_collection.find_one({"email": user_data.email})
     if existing_user:
@@ -45,7 +45,7 @@ async def signup(user_data: UserCreate):
     return Token(access_token=access_token, token_type="bearer", user=user_response)
 
 @router.post("/login", response_model=Token)
-async def login(credentials: UserLogin):
+def login(credentials: UserLogin):
     user = users_collection.find_one({"email": credentials.email})
     if not user or not verify_password(credentials.password, user["hashed_password"]):
         raise HTTPException(
@@ -68,7 +68,7 @@ async def login(credentials: UserLogin):
     return Token(access_token=access_token, token_type="bearer", user=user_response)
 
 @router.post("/child-session/{child_id}", response_model=ChildSession)
-async def create_child_session(child_id: str, current_user: TokenData = Depends(get_current_user)):
+def create_child_session(child_id: str, current_user: TokenData = Depends(get_current_user)):
     # Verify child belongs to parent
     child = children_collection.find_one({"id": child_id})
     if not child:
@@ -102,7 +102,7 @@ async def create_child_session(child_id: str, current_user: TokenData = Depends(
     )
 
 @router.get("/me", response_model=User)
-async def get_current_user_info(current_user: TokenData = Depends(get_current_user)):
+def get_current_user_info(current_user: TokenData = Depends(get_current_user)):
     user = users_collection.find_one({"id": current_user.user_id})
     if not user:
         raise HTTPException(

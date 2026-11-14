@@ -8,7 +8,7 @@ from app.utils.auth import get_current_user
 router = APIRouter(prefix="/api/quests", tags=["quests"])
 
 @router.get("", response_model=List[Quest])
-async def get_quests(
+def get_quests(
     world: Optional[str] = None,
     subject: Optional[str] = None,
     difficulty: Optional[str] = None,
@@ -34,7 +34,7 @@ async def get_quests(
     return result
 
 @router.get("/child/{child_id}", response_model=List[QuestWithProgress])
-async def get_quests_for_child(
+def get_quests_for_child(
     child_id: str,
     world: Optional[str] = None,
     current_user: TokenData = Depends(get_current_user)
@@ -90,7 +90,7 @@ async def get_quests_for_child(
     return result
 
 @router.get("/{quest_id}", response_model=Quest)
-async def get_quest(quest_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_quest(quest_id: str, current_user: TokenData = Depends(get_current_user)):
     quest = quests_collection.find_one({"id": quest_id})
     if not quest:
         raise HTTPException(
@@ -104,6 +104,6 @@ async def get_quest(quest_id: str, current_user: TokenData = Depends(get_current
     return Quest(**quest)
 
 @router.get("/{quest_id}/steps", response_model=List[QuestStep])
-async def get_quest_steps(quest_id: str, current_user: TokenData = Depends(get_current_user)):
+def get_quest_steps(quest_id: str, current_user: TokenData = Depends(get_current_user)):
     steps = list(quest_steps_collection.find({"quest_id": quest_id}).sort("step_order", 1))
     return [QuestStep(**step) for step in steps]

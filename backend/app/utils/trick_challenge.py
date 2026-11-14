@@ -103,9 +103,9 @@ def gen_make_a_ten(band: str, rng: random.Random, mastery: bool = False) -> dict
     steps = [
         _step("need", f"How many more does {a} need to reach {ten_value}?", need,
               hint=f"Count up from {a} to {ten_value} on your fingers."),
-        _step("split", f"Split {b}: it gives {{need}} to make the ten. What's left over?", rest,
-              hint=f"{b} is made of {{need}} and one more part."),
-        _step("answer", f"Now it's easy: {ten_value} + {{split}} = ?  So {a} + {b} = ?", total),
+        _step("split", f"Split {b}: it gives {need} to make the ten. What's left over?", rest,
+              hint=f"{b} is made of {need} and one more part."),
+        _step("answer", f"Now it's easy: {ten_value} + {rest} = ?  So {a} + {b} = ?", total),
     ]
     return {
         "prompt": f"{a} + {b} = ?",
@@ -144,7 +144,7 @@ def gen_times_11_basic(band: str, rng: random.Random, mastery: bool = False) -> 
               hint=f"Look at the first digit of {n} — it stays in front."),
         _step("middle", f"Add the two digits of {n}: {f} + {l} = ?", mid,
               hint="Just add the digits together — that's the middle."),
-        _step("answer", f"Build it: first {{first}}, middle {{middle}}, last {l}.  {n} × 11 = ?", n * 11),
+        _step("answer", f"Build it: first {f}, middle {mid}, last {l}.  {n} × 11 = ?", n * 11),
     ]
     return {
         "prompt": f"{n} × 11 = ?",
@@ -213,7 +213,7 @@ def gen_times_9(band: str, rng: random.Random, mastery: bool = False) -> dict:
         _step("ten", f"Start with 10 groups: 10 × {n} = ?", 10 * n,
               hint="Times 10 is easy — just add a zero."),
         _step("answer", f"9 is ONE group less than 10, so take away one group of {n}: "
-                        f"{{ten}} − {n} = ?  So 9 × {n} = ?", 9 * n),
+                        f"{10 * n} − {n} = ?  So 9 × {n} = ?", 9 * n),
     ]
     return {
         "prompt": f"9 × {n} = ?",

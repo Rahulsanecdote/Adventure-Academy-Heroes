@@ -10,7 +10,7 @@ import uuid
 router = APIRouter(prefix="/api/children", tags=["children"])
 
 @router.post("", response_model=ChildProfile, status_code=status.HTTP_201_CREATED)
-async def create_child_profile(child_data: ChildProfileCreate, current_user: TokenData = Depends(get_current_parent)):
+def create_child_profile(child_data: ChildProfileCreate, current_user: TokenData = Depends(get_current_parent)):
     # Verify parent_id matches current user
     if child_data.parent_id != current_user.user_id:
         raise HTTPException(
@@ -40,12 +40,12 @@ async def create_child_profile(child_data: ChildProfileCreate, current_user: Tok
     return ChildProfile(**child_dict)
 
 @router.get("", response_model=List[ChildProfile])
-async def get_children(current_user: TokenData = Depends(get_current_parent)):
+def get_children(current_user: TokenData = Depends(get_current_parent)):
     children = list(children_collection.find({"parent_id": current_user.user_id}))
     return [ChildProfile(**child) for child in children]
 
 @router.get("/{child_id}", response_model=ChildProfile)
-async def get_child(child_id: str, current_user: TokenData = Depends(get_current_parent)):
+def get_child(child_id: str, current_user: TokenData = Depends(get_current_parent)):
     child = children_collection.find_one({"id": child_id, "parent_id": current_user.user_id})
     if not child:
         raise HTTPException(
@@ -55,7 +55,7 @@ async def get_child(child_id: str, current_user: TokenData = Depends(get_current
     return ChildProfile(**child)
 
 @router.patch("/{child_id}/avatar", response_model=ChildProfile)
-async def update_avatar(child_id: str, avatar: AvatarCustomization, current_user: TokenData = Depends(get_current_parent)):
+def update_avatar(child_id: str, avatar: AvatarCustomization, current_user: TokenData = Depends(get_current_parent)):
     child = children_collection.find_one({"id": child_id, "parent_id": current_user.user_id})
     if not child:
         raise HTTPException(
@@ -72,7 +72,7 @@ async def update_avatar(child_id: str, avatar: AvatarCustomization, current_user
     return ChildProfile(**updated_child)
 
 @router.patch("/{child_id}/hint-buddy", response_model=ChildProfile)
-async def toggle_hint_buddy(child_id: str, enabled: bool, current_user: TokenData = Depends(get_current_parent)):
+def toggle_hint_buddy(child_id: str, enabled: bool, current_user: TokenData = Depends(get_current_parent)):
     child = children_collection.find_one({"id": child_id, "parent_id": current_user.user_id})
     if not child:
         raise HTTPException(
@@ -89,7 +89,7 @@ async def toggle_hint_buddy(child_id: str, enabled: bool, current_user: TokenDat
     return ChildProfile(**updated_child)
 
 @router.delete("/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_child_profile(child_id: str, current_user: TokenData = Depends(get_current_parent)):
+def delete_child_profile(child_id: str, current_user: TokenData = Depends(get_current_parent)):
     child = children_collection.find_one({"id": child_id, "parent_id": current_user.user_id})
     if not child:
         raise HTTPException(
