@@ -122,19 +122,22 @@ export const ParentDashboard: React.FC = () => {
   const levelProgress = (((selectedChild.total_xp || 0) % 100) / 100) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100">
-      {/* Header - Game Style */}
+    <div className="min-h-screen overflow-x-clip bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100">
+      {/* Header - Game Style. On phones the row wraps and the email pill
+          truncates: previously the logo + full email + Logout in one
+          non-wrapping flex was wider than the screen, which stretched
+          the whole page's layout width (the "72% column" look). */}
       <header className="bg-gradient-to-r from-roblox-blue to-roblox-darkblue border-b-4 border-blue-800 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="text-4xl">🎮</div>
-            <h1 className="text-3xl font-game font-bold text-white text-game-shadow">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-x-3 gap-y-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="text-3xl sm:text-4xl">🎮</div>
+            <h1 className="text-2xl sm:text-3xl font-game font-bold text-white text-game-shadow whitespace-nowrap">
               KidQuest Academy
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
-              <span className="text-white font-semibold">👨‍👩‍👧 {user?.email}</span>
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 max-w-[44vw] sm:max-w-none">
+              <span className="block text-white font-semibold text-sm sm:text-base truncate">👨‍👩‍👧 {user?.email}</span>
             </div>
             <GameButton variant="danger" size="sm" onClick={logout}>
               <LogOut size={16} className="mr-2 inline" />
