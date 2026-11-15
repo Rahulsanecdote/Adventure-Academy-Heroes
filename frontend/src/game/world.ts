@@ -184,7 +184,7 @@ function createNPC(
   callbacks: WorldCallbacks
 ): void {
   const npcContainer = new BABYLON.TransformNode(`npc_${npcData.name}`, scene);
-  npcContainer.position = npcData.position;
+  npcContainer.position = npcData.position.clone();
   npcContainer.parent = parent;
 
   const body = BABYLON.MeshBuilder.CreateCapsule(`npcBody_${npcData.name}`, { height: 1.5, radius: 0.4 }, scene);
